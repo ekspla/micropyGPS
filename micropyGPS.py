@@ -187,6 +187,8 @@ class MicropyGPS(object):
                 hours = (int(utc_string[0:2]) + self.local_offset) % 24
                 minutes = int(utc_string[2:4])
                 seconds = float(utc_string[4:])
+                if not (0 <= minutes < 60 and 0 <= seconds < 60):
+                    return False 
                 self.timestamp = [hours, minutes, seconds]
             else:  # No Time stamp yet
                 self.timestamp = [0, 0, 0.0]
@@ -285,6 +287,8 @@ class MicropyGPS(object):
                 hours = (int(utc_string[0:2]) + self.local_offset) % 24
                 minutes = int(utc_string[2:4])
                 seconds = float(utc_string[4:])
+                if not (0 <= minutes < 60 and 0 <= seconds < 60):
+                    return False 
                 self.timestamp = [hours, minutes, seconds]
             else:  # No Time stamp yet
                 self.timestamp = [0, 0, 0.0]
@@ -337,7 +341,7 @@ class MicropyGPS(object):
         try:
             course = float(self.gps_segments[1]) if self.gps_segments[1] else 0.0
             spd_knt = float(self.gps_segments[5]) if self.gps_segments[5] else 0.0
-        except ValueError:
+        except (ValueError, IndexError):
             return False
 
         # Include mph and km/h
@@ -358,6 +362,9 @@ class MicropyGPS(object):
                 hours = (int(utc_string[0:2]) + self.local_offset) % 24
                 minutes = int(utc_string[2:4])
                 seconds = float(utc_string[4:])
+                if not (0 <= minutes < 60 and 0 <= seconds < 60):
+                    return False 
+
             else:
                 hours = 0
                 minutes = 0
@@ -499,8 +506,15 @@ class MicropyGPS(object):
         # Try to recover data for up to 4 satellites in sentence
         for sats in range(4, sat_segment_limit, 4):
 
+            try:
+                # If no PRN is found, then the sentence has no more satellites to read
+                if not self.gps_segments[sats]:
+                   break
+            except IndexError:
+                return False
+
             # If a PRN is present, grab satellite data
-            if self.gps_segments[sats]:
+            else:
                 try:
                     sat_id = int(self.gps_segments[sats])
                 except (ValueError,IndexError):
@@ -520,12 +534,9 @@ class MicropyGPS(object):
                     snr = int(self.gps_segments[sats+3])
                 except (ValueError,IndexError):
                     snr = None
-            # If no PRN is found, then the sentence has no more satellites to read
-            else:
-                break
+                # Add Satellite Data to Sentence Dict
+                satellite_dict[sat_id] = (elevation, azimuth, snr)
 
-            # Add Satellite Data to Sentence Dict
-            satellite_dict[sat_id] = (elevation, azimuth, snr)
 
         # Update Object Data
         self.total_sv_sentences = num_sv_sentences
