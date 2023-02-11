@@ -385,7 +385,7 @@ class MicropyGPS(object):
         except (ValueError, IndexError):
             hdop = 0.0
 
-        # Process Location and Speed Data if Fix is GOOD
+        # Process Location Data if Fix is GOOD
         if fix_stat:
 
             # Longitude / Latitude
@@ -787,7 +787,7 @@ class MicropyGPS(object):
                 suffix = 'st'
             elif self.date[0] in (2, 22):
                 suffix = 'nd'
-            elif self.date[0] == (3, 23):
+            elif self.date[0] in (3, 23):
                 suffix = 'rd'
             else:
                 suffix = 'th'
