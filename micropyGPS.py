@@ -514,28 +514,27 @@ class MicropyGPS(object):
                 return False
 
             # If a PRN is present, grab satellite data
-            else:
-                try:
-                    sat_id = int(self.gps_segments[sats])
-                except (ValueError,IndexError):
-                    return False
+            try:
+                sat_id = int(self.gps_segments[sats])
+            except (ValueError,IndexError):
+                return False
 
-                try:  # elevation can be null (no value) when not tracking
-                    elevation = int(self.gps_segments[sats+1])
-                except (ValueError,IndexError):
-                    elevation = None
+            try:  # elevation can be null (no value) when not tracking
+                elevation = int(self.gps_segments[sats+1])
+            except (ValueError,IndexError):
+                elevation = None
 
-                try:  # azimuth can be null (no value) when not tracking
-                    azimuth = int(self.gps_segments[sats+2])
-                except (ValueError,IndexError):
-                    azimuth = None
+            try:  # azimuth can be null (no value) when not tracking
+                azimuth = int(self.gps_segments[sats+2])
+            except (ValueError,IndexError):
+                azimuth = None
 
-                try:  # SNR can be null (no value) when not tracking
-                    snr = int(self.gps_segments[sats+3])
-                except (ValueError,IndexError):
-                    snr = None
-                # Add Satellite Data to Sentence Dict
-                satellite_dict[sat_id] = (elevation, azimuth, snr)
+            try:  # SNR can be null (no value) when not tracking
+                snr = int(self.gps_segments[sats+3])
+            except (ValueError,IndexError):
+                snr = None
+            # Add Satellite Data to Sentence Dict
+            satellite_dict[sat_id] = (elevation, azimuth, snr)
 
 
         # Update Object Data
