@@ -210,7 +210,7 @@ class MicropyGPS(object):
             else:  # No Date stamp yet
                 self.date = (0, 0, 0)
 
-        except ValueError:  # Bad Date stamp value present
+        except (ValueError, IndexError):  # Bad Date stamp value present
             return False
 
         # Check Receiver Data Valid Flag
