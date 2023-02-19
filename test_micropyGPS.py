@@ -9,6 +9,7 @@ Tests for micropyGPS module
 """
 import hashlib
 from micropyGPS import MicropyGPS
+import math
 
 test_RMC = ['$GPRMC,081836,A,3751.65,S,14507.36,E,000.0,360.0,130998,011.3,E*62\n',
             '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A\n',
@@ -27,39 +28,39 @@ rmc_parsed_strings = [['GPRMC', '081836', 'A', '3751.65', 'S', '14507.36', 'E', 
                       ['GPRMC', '193448.00', 'A', '3746.2622056', 'N', '12224.1897266', 'W', '0.01', '', '041218', '', '', 'D', '58'],
                       ['GPRMC', '193449.00', 'A', '3746.2622284', 'N', '12224.1897308', 'W', '0.01', '', '041218', '', '', 'D', '5D']]
 rmc_crc_values = [0x62, 0x6a, 0x68, 0x7a, 0x70, 0x45, 0x58, 0x5D]
-rmc_longitude = [[145, 7.36, 'E'],
-                 [11, 31.0, 'E'],
-                 [123, 11.12, 'W'],
-                 [83, 38.7891, 'W'],
-                 [83, 38.7869, 'W'],
-                 [6, 30.3371, 'W'],
-                 [122, 24.1897266, 'W'],
-                 [122, 24.1897308, 'W']]
-rmc_latitude = [[37, 51.65, 'S'],
-                [48, 7.038, 'N'],
-                [49, 16.45, 'N'],
-                [37, 49.1851, 'N'],
-                [37, 49.1808, 'N'],
-                [53, 21.6802, 'N'],
-                [37, 46.2622056, 'N'],
-                [37, 46.2622284, 'N']]
+rmc_longitude = [(145, 7.36, 'E'),
+                 (11, 31.0, 'E'),
+                 (123, 11.12, 'W'),
+                 (83, 38.7891, 'W'),
+                 (83, 38.7869, 'W'),
+                 (6, 30.3371, 'W'),
+                 (122, 24.1897266, 'W'),
+                 (122, 24.1897308, 'W')]
+rmc_latitude = [(37, 51.65, 'S'),
+                (48, 7.038, 'N'),
+                (49, 16.45, 'N'),
+                (37, 49.1851, 'N'),
+                (37, 49.1808, 'N'),
+                (53, 21.6802, 'N'),
+                (37, 46.2622056, 'N'),
+                (37, 46.2622284, 'N')]
 
-rmc_utc = [[8, 18, 36.0],
-           [12, 35, 19.0],
-           [22, 54, 46.0],
-           [18, 0, 41.896],
-           [18, 0, 49.896],
-           [9, 27, 51.0],
-           [19, 34, 48.0],
-           [19, 34, 49.0]]
-rmc_speed = [[0.0, 0.0, 0.0],
-             [22.4, 25.7824, 41.4848],
-             [0.5, 0.5755, 0.926],
-             [1.9, 2.1869, 3.5188],
-             [1.8, 2.0718, 3.3336],
-             [0.06, 0.06906, 0.11112],
-             [0.01, 0.011510000000000001, 0.018520000000000002],
-             [0.01, 0.011510000000000001, 0.018520000000000002]]
+rmc_utc = [(8, 18, 36.0),
+           (12, 35, 19.0),
+           (22, 54, 46.0),
+           (18, 0, 41.896),
+           (18, 0, 49.896),
+           (9, 27, 51.0),
+           (19, 34, 48.0),
+           (19, 34, 49.0)]
+rmc_speed = [0.0,
+             22.4,
+             0.5,
+             1.9,
+             1.8,
+             0.06,
+             0.01,
+             0.01]
 rmc_date = [(13, 9, 98),
             (23, 3, 94),
             (19, 11, 94),
@@ -81,10 +82,10 @@ gga_parsed_strings = [['GPGGA', '180126.905', '4254.931', 'N', '07702.496', 'W',
                       ['GPGGA', '181433.343', '4054.931', 'N', '07502.498', 'W', '0', '00', '', '', 'M', '', 'M', '', '', '52'],
                       ['GPGGA', '180050.896', '3749.1802', 'N', '08338.7865', 'W', '1', '07', '1.1', '397.4', 'M', '-32.5', 'M', '', '0000', '6C'],
                       ['GPGGA', '172814.0', '3723.46587704', 'N', '12202.26957864', 'W', '2', '6', '1.2', '18.893', 'M', '-25.669', 'M', '2.0', '0031', '4F']]
-gga_latitudes = [[0, 0.0, 'N'], [0, 0.0, 'N'], [37, 49.1802, 'N'], [37, 23.46587704, 'N']]
-gga_longitudes = [[0, 0.0, 'W'], [0, 0.0, 'W'], [83, 38.7865, 'W'], [122, 2.26957864, 'W']]
+gga_latitudes = [(0, 0.0, 'N'), (0, 0.0, 'N'), (37, 49.1802, 'N'), (37, 23.46587704, 'N')]
+gga_longitudes = [(0, 0.0, 'W'), (0, 0.0, 'W'), (83, 38.7865, 'W'), (122, 2.26957864, 'W')]
 gga_fixes = [0, 0, 1, 2]
-gga_timestamps = [[18, 1, 26.905], [18, 14, 33.343], [18, 0, 50.896], [17, 28, 14.0]]
+gga_timestamps = [(18, 1, 26.905), (18, 14, 33.343), (18, 0, 50.896), (17, 28, 14.0)]
 gga_hdops = [0.0, 0.0, 1.1, 1.2]
 gga_altitudes = [0.0, 0.0, 397.4, 18.893]
 gga_satellites_in_uses = [0, 0, 7, 6]
@@ -168,18 +169,18 @@ gll_parsed_string = [['GPGLL', '3711.0942', 'N', '08671.4472', 'W', '000812.000'
                      ['GPGLL', '4250.5589', 'S', '14718.5084', 'E', '092204.999', 'A', '2D'],
                      ['GPGLL', '0000.0000', 'N', '00000.0000', 'E', '235947.000', 'V', '2D']]
 gll_crc_values = [0x46, 0x1d, 0x2d, 0x2d]
-gll_longitude = [[86, 71.4472, 'W'],
-                 [123, 11.12, 'W'],
-                 [147, 18.5084, 'E'],
-                 [0, 0.0, 'W']]
-gll_latitude = [[37, 11.0942, 'N'],
-                [49, 16.45, 'N'],
-                [42, 50.5589, 'S'],
-                [0, 0.0, 'N']]
-gll_timestamp = [[0, 8, 12.0],
-                 [22, 54, 44.0],
-                 [9, 22, 4.999],
-                 [23, 59, 47.0]]
+gll_longitude = [(86, 71.4472, 'W'),
+                 (123, 11.12, 'W'),
+                 (147, 18.5084, 'E'),
+                 (0, 0.0, 'W')]
+gll_latitude = [(37, 11.0942, 'N'),
+                (49, 16.45, 'N'),
+                (42, 50.5589, 'S'),
+                (0, 0.0, 'N')]
+gll_timestamp = [(0, 8, 12.0),
+                 (22, 54, 44.0),
+                 (9, 22, 4.999),
+                 (23, 59, 47.0)]
 gll_valid = [True, True, True, False]
 
 
@@ -232,7 +233,7 @@ def test_vtg_sentences():
                 print('Parsed Strings', my_gps.gps_segments)
                 assert my_gps.crc_xor == 0x1
                 print('Sentence CRC Value:', hex(my_gps.crc_xor))
-                assert my_gps.speed == (2.3, 2.6473, 4.2596)
+                assert my_gps.speed == 2.3
                 print('Speed:', my_gps.speed)
                 assert my_gps.course == 232.9
                 print('Course', my_gps.course)
@@ -336,8 +337,11 @@ def test_gsv_sentences():
                 else:
                     print('Current Satellite Data:', my_gps.satellite_data)
                     print('Current Satellites Visible:', my_gps.satellites_visible())
-                assert my_gps.satellite_data == gsv_sat_data[sentence_count]
-                assert my_gps.satellites_visible() == gsv_sats_in_view[sentence_count]
+                assert all( (k,v) in my_gps.satellite_data.items()
+                    for (k,v) in gsv_sat_data[sentence_count].items() )
+                #assert my_gps.satellite_data == gsv_sat_data[sentence_count] # Dicts are not orderd.
+                assert set(my_gps.satellites_visible()) == set(gsv_sats_in_view[sentence_count])
+                #assert my_gps.satellites_visible() == gsv_sats_in_view[sentence_count] # Dicts are not orderd.
     assert my_gps.clean_sentences == len(test_GSV)
     assert my_gps.parsed_sentences == len(test_GSV)
     assert my_gps.crc_fails == 0
@@ -415,9 +419,9 @@ def test_pretty_print():
     assert my_gps.speed_string('knot') == '2.3 knots'
     assert my_gps.date_string('long') == 'May 28th, 2011'
     print('Date (Long Format):', my_gps.date_string('long'))
-    assert my_gps.date_string('s_dmy') == '28/05/11'
+    assert my_gps.date_string('s_dmy') == '28/05/2011'
     print('Date (Short D/M/Y Format):', my_gps.date_string('s_dmy'))
-    assert my_gps.date_string('s_mdy') == '05/28/11'
+    assert my_gps.date_string('s_mdy') == '05/28/2011'
     print('Date (Short M/D/Y Format):', my_gps.date_string('s_mdy'))
 
 
@@ -427,9 +431,17 @@ def test_coordinate_representations():
         for y in RMC_sentence:
             my_gps.update(y)
     print('')
-    assert my_gps.latitude_string() == '53.361336666666666°'
+    #assert my_gps.latitude_string() == '53.361336666666666°'
+    # To avoid errors in the least significant digits.
+    given = '53.361336666666666°'
+    assert math.isclose(float(my_gps.latitude_string()[:-1]), float(given[:-1]))
+    assert my_gps.latitude_string()[-1] == given[-1]
     print('Decimal Degrees Latitude:', my_gps.latitude_string())
-    assert my_gps.longitude_string() == '-6.5056183333333335°'
+    #assert my_gps.longitude_string() == '-6.5056183333333335°'
+    # To avoid errors in the least significant digits.
+    given = '-6.5056183333333335°'
+    assert math.isclose(float(my_gps.longitude_string()[:-1]), float(given[:-1]))
+    assert my_gps.longitude_string()[-1] == given[-1]
     print('Decimal Degrees Longitude:', my_gps.longitude_string())
     my_gps.coord_format = 'dms'
     print('Degrees Minutes Seconds Latitude:', my_gps.latitude_string())

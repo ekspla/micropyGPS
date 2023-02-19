@@ -16,10 +16,12 @@ from math import floor, modf
 try:
     # Assume running on MicroPython
     import utime
+    get_ticks = utime.ticks_ms
 except ImportError:
     # Otherwise default to time module for non-embedded implementations
     # Should still support millisecond resolution.
     import time
+    get_ticks = time.time
 
 
 class MicropyGPS(object):
@@ -28,7 +30,7 @@ class MicropyGPS(object):
 
     # Max Number of Characters a valid sentence can be (based on GGA sentence)
     SENTENCE_LIMIT = 90
-    __HEMISPHERES = ('N', 'S', 'E', 'W')
+    __HEMISPHERES = {'N', 'S', 'E', 'W'}
     __NO_FIX = 1
     __FIX_2D = 2
     __FIX_3D = 3
@@ -37,6 +39,10 @@ class MicropyGPS(object):
     __MONTHS = ('January', 'February', 'March', 'April', 'May',
                 'June', 'July', 'August', 'September', 'October',
                 'November', 'December')
+    CLEAR_DATE = (0, 0, 0)
+    CLEAR_TIME = (0, 0, 0.0)
+    CLEAR_LAT = (0, 0.0, 'N')
+    CLEAR_LON = (0, 0.0, 'W')
 
     def __init__(self, local_offset=0, location_formatting='ddm'):
         """
@@ -72,15 +78,15 @@ class MicropyGPS(object):
         #####################
         # Data From Sentences
         # Time
-        self.timestamp = [0, 0, 0.0]
-        self.date = [0, 0, 0]
+        self.timestamp = self.CLEAR_TIME
+        self.date = self.CLEAR_DATE
         self.local_offset = local_offset
 
         # Position/Motion
-        self._latitude = [0, 0.0, 'N']
-        self._longitude = [0, 0.0, 'W']
+        self._latitude = self.CLEAR_LAT
+        self._longitude = self.CLEAR_LON
         self.coord_format = location_formatting
-        self.speed = [0.0, 0.0, 0.0]
+        self.speed = 0.0
         self.course = 0.0
         self.altitude = 0.0
         self.geoid_height = 0.0
@@ -105,30 +111,24 @@ class MicropyGPS(object):
     @property
     def latitude(self):
         """Format Latitude Data Correctly"""
-        if self.coord_format == 'dd':
-            decimal_degrees = self._latitude[0] + (self._latitude[1] / 60)
-            sign_dd = (self._latitude[2] == 'N') - (self._latitude[2] == 'S')
-            return sign_dd * decimal_degrees
-        elif self.coord_format == 'dms':
-            minute_parts = modf(self._latitude[1])
-            seconds = round(minute_parts[0] * 60)
-            return [self._latitude[0], int(minute_parts[1]), seconds, self._latitude[2]]
-        else:
-            return self._latitude
+        return self.__format_lat_lon(self._latitude)
 
     @property
     def longitude(self):
         """Format Longitude Data Correctly"""
+        return self.__format_lat_lon(self._longitude)
+
+    def __format_lat_lon(self, lat_lon):
         if self.coord_format == 'dd':
-            decimal_degrees = self._longitude[0] + (self._longitude[1] / 60)
-            sign_dd = (self._longitude[2] == 'E') - (self._longitude[2] == 'W')
+            decimal_degrees = lat_lon[0] + (lat_lon[1] / 60)
+            sign_dd = (lat_lon[2] in {'N', 'E'}) - (lat_lon[2] in {'S', 'W'})
             return sign_dd * decimal_degrees
         elif self.coord_format == 'dms':
-            minute_parts = modf(self._longitude[1])
+            minute_parts = modf(lat_lon[1])
             seconds = round(minute_parts[0] * 60)
-            return [self._longitude[0], int(minute_parts[1]), seconds, self._longitude[2]]
+            return (lat_lon[0], int(minute_parts[1]), seconds, lat_lon[2])
         else:
-            return self._longitude
+            return lat_lon
 
     ########################################
     # Logging Related Functions
@@ -189,9 +189,9 @@ class MicropyGPS(object):
                 seconds = float(utc_string[4:])
                 if seconds >= 60.0 or minutes >= 60:
                     return False 
-                self.timestamp = [hours, minutes, seconds]
+                self.timestamp = (hours, minutes, seconds)
             else:  # No Time stamp yet
-                self.timestamp = [0, 0, 0.0]
+                self.timestamp = self.CLEAR_TIME
 
         except ValueError:  # Bad Timestamp value present
             return False
@@ -208,7 +208,7 @@ class MicropyGPS(object):
                 year = int(date_string[4:6])
                 self.date = (day, month, year)
             else:  # No Date stamp yet
-                self.date = (0, 0, 0)
+                self.date = self.CLEAR_DATE
 
         except (ValueError, IndexError):  # Bad Date stamp value present
             return False
@@ -219,23 +219,21 @@ class MicropyGPS(object):
             # Longitude / Latitude
             try:
                 # Latitude
+                lat_hemi = self.gps_segments[4]
+                if lat_hemi not in self.__HEMISPHERES:
+                    return False
                 l_string = self.gps_segments[3]
                 lat_degs = int(l_string[0:2])
                 lat_mins = float(l_string[2:])
-                lat_hemi = self.gps_segments[4]
 
                 # Longitude
+                lon_hemi = self.gps_segments[6]
+                if lon_hemi not in self.__HEMISPHERES:
+                    return False
                 l_string = self.gps_segments[5]
                 lon_degs = int(l_string[0:3])
                 lon_mins = float(l_string[3:])
-                lon_hemi = self.gps_segments[6]
             except ValueError:
-                return False
-
-            if lat_hemi not in self.__HEMISPHERES:
-                return False
-
-            if lon_hemi not in self.__HEMISPHERES:
                 return False
 
             # Speed
@@ -256,10 +254,9 @@ class MicropyGPS(object):
             # TODO - Add Magnetic Variation
 
             # Update Object Data
-            self._latitude = [lat_degs, lat_mins, lat_hemi]
-            self._longitude = [lon_degs, lon_mins, lon_hemi]
-            # Include mph and hm/h
-            self.speed = [spd_knt, spd_knt * 1.151, spd_knt * 1.852]
+            self._latitude = (lat_degs, lat_mins, lat_hemi)
+            self._longitude = (lon_degs, lon_mins, lon_hemi)
+            self.speed = spd_knt
             self.course = course
             self.valid = True
 
@@ -267,9 +264,9 @@ class MicropyGPS(object):
             self.new_fix_time()
 
         else:  # Clear Position Data if Sentence is 'Invalid'
-            self._latitude = [0, 0.0, 'N']
-            self._longitude = [0, 0.0, 'W']
-            self.speed = [0.0, 0.0, 0.0]
+            self._latitude = self.CLEAR_LAT
+            self._longitude = self.CLEAR_LON
+            self.speed = 0.0
             self.course = 0.0
             self.valid = False
 
@@ -289,9 +286,9 @@ class MicropyGPS(object):
                 seconds = float(utc_string[4:])
                 if seconds >= 60.0 or minutes >= 60:
                     return False 
-                self.timestamp = [hours, minutes, seconds]
+                self.timestamp = (hours, minutes, seconds)
             else:  # No Time stamp yet
-                self.timestamp = [0, 0, 0.0]
+                self.timestamp = self.CLEAR_TIME
 
         except ValueError:  # Bad Timestamp value present
             return False
@@ -302,36 +299,34 @@ class MicropyGPS(object):
             # Longitude / Latitude
             try:
                 # Latitude
+                lat_hemi = self.gps_segments[2]
+                if lat_hemi not in self.__HEMISPHERES:
+                    return False
                 l_string = self.gps_segments[1]
                 lat_degs = int(l_string[0:2])
                 lat_mins = float(l_string[2:])
-                lat_hemi = self.gps_segments[2]
 
                 # Longitude
+                lon_hemi = self.gps_segments[4]
+                if lon_hemi not in self.__HEMISPHERES:
+                    return False
                 l_string = self.gps_segments[3]
                 lon_degs = int(l_string[0:3])
                 lon_mins = float(l_string[3:])
-                lon_hemi = self.gps_segments[4]
             except ValueError:
                 return False
 
-            if lat_hemi not in self.__HEMISPHERES:
-                return False
-
-            if lon_hemi not in self.__HEMISPHERES:
-                return False
-
             # Update Object Data
-            self._latitude = [lat_degs, lat_mins, lat_hemi]
-            self._longitude = [lon_degs, lon_mins, lon_hemi]
+            self._latitude = (lat_degs, lat_mins, lat_hemi)
+            self._longitude = (lon_degs, lon_mins, lon_hemi)
             self.valid = True
 
             # Update Last Fix Time
             self.new_fix_time()
 
         else:  # Clear Position Data if Sentence is 'Invalid'
-            self._latitude = [0, 0.0, 'N']
-            self._longitude = [0, 0.0, 'W']
+            self._latitude = self.CLEAR_LAT
+            self._longitude = self.CLEAR_LON
             self.valid = False
 
         return True
@@ -344,8 +339,8 @@ class MicropyGPS(object):
         except (ValueError, IndexError):
             return False
 
-        # Include mph and km/h
-        self.speed = (spd_knt, spd_knt * 1.151, spd_knt * 1.852)
+        # Update Object Data
+        self.speed = spd_knt
         self.course = course
         return True
 
@@ -364,11 +359,10 @@ class MicropyGPS(object):
                 seconds = float(utc_string[4:])
                 if seconds >= 60.0 or minutes >= 60:
                     return False 
+                self.timestamp = (hours, minutes, seconds)
 
             else:
-                hours = 0
-                minutes = 0
-                seconds = 0.0
+                self.timestamp = self.CLEAR_TIME
 
             # Number of Satellites in Use
             satellites_in_use = int(self.gps_segments[7])
@@ -391,23 +385,21 @@ class MicropyGPS(object):
             # Longitude / Latitude
             try:
                 # Latitude
+                lat_hemi = self.gps_segments[3]
+                if lat_hemi not in self.__HEMISPHERES:
+                    return False
                 l_string = self.gps_segments[2]
                 lat_degs = int(l_string[0:2])
                 lat_mins = float(l_string[2:])
-                lat_hemi = self.gps_segments[3]
 
                 # Longitude
+                lon_hemi = self.gps_segments[5]
+                if lon_hemi not in self.__HEMISPHERES:
+                    return False
                 l_string = self.gps_segments[4]
                 lon_degs = int(l_string[0:3])
                 lon_mins = float(l_string[3:])
-                lon_hemi = self.gps_segments[5]
             except ValueError:
-                return False
-
-            if lat_hemi not in self.__HEMISPHERES:
-                return False
-
-            if lon_hemi not in self.__HEMISPHERES:
                 return False
 
             # Altitude / Height Above Geoid
@@ -415,17 +407,16 @@ class MicropyGPS(object):
                 altitude = float(self.gps_segments[9])
                 geoid_height = float(self.gps_segments[11])
             except ValueError:
-                altitude = 0
-                geoid_height = 0
+                altitude = 0.0
+                geoid_height = 0.0
 
             # Update Object Data
-            self._latitude = [lat_degs, lat_mins, lat_hemi]
-            self._longitude = [lon_degs, lon_mins, lon_hemi]
+            self._latitude = (lat_degs, lat_mins, lat_hemi)
+            self._longitude = (lon_degs, lon_mins, lon_hemi)
             self.altitude = altitude
             self.geoid_height = geoid_height
 
         # Update Object Data
-        self.timestamp = [hours, minutes, seconds]
         self.satellites_in_use = satellites_in_use
         self.hdop = hdop
         self.fix_stat = fix_stat
@@ -646,10 +637,7 @@ class MicropyGPS(object):
     def new_fix_time(self):
         """Updates a high resolution counter with current time when fix is updated. Currently only triggered from
         GGA, GSA and RMC sentences"""
-        try:
-            self.fix_time = utime.ticks_ms()
-        except NameError:
-            self.fix_time = time.time()
+        self.fix_time = get_ticks()
 
     #########################################
     # User Helper Functions
@@ -690,9 +678,9 @@ class MicropyGPS(object):
         # Try calculating fix time using utime; if not running MicroPython
         # time.time() returns a floating point value in secs
         try:
-            current = utime.ticks_diff(utime.ticks_ms(), self.fix_time)
+            current = utime.ticks_diff(get_ticks(), self.fix_time)
         except NameError:
-            current = (time.time() - self.fix_time) * 1000  # ms
+            current = (get_ticks() - self.fix_time) * 1000  # ms
 
         return current
 
@@ -702,17 +690,12 @@ class MicropyGPS(object):
         :return: string
         """
         # Calculate the offset for a rotated compass
-        if self.course >= 348.75:
-            offset_course = 360 - self.course
-        else:
-            offset_course = self.course + 11.25
+        offset_course = (self.course + 11.25) % 360.0
 
         # Each compass point is separated by 22.5 degrees, divide to find lookup value
         dir_index = floor(offset_course / 22.5)
 
-        final_dir = self.__DIRECTIONS[dir_index]
-
-        return final_dir
+        return self.__DIRECTIONS[dir_index]
 
     def latitude_string(self):
         """
@@ -720,14 +703,13 @@ class MicropyGPS(object):
         :return: string
         """
         if self.coord_format == 'dd':
-            formatted_latitude = self.latitude
-            lat_string = str(formatted_latitude) + '°'
+            return str(self.latitude) + '°'
         elif self.coord_format == 'dms':
-            formatted_latitude = self.latitude
-            lat_string = str(formatted_latitude[0]) + '° ' + str(formatted_latitude[1]) + "' " + str(formatted_latitude[2]) + '" ' + str(formatted_latitude[3])
+            d, m, s, hemi = self.latitude
+            return str(d) + '° ' + str(m) + "' " + str(s) + '" ' + str(hemi)
         else:
-            lat_string = str(self._latitude[0]) + '° ' + str(self._latitude[1]) + "' " + str(self._latitude[2])
-        return lat_string
+            d, dm, hemi = self._latitude
+            return str(d) + '° ' + str(dm) + "' " + str(hemi)
 
     def longitude_string(self):
         """
@@ -735,14 +717,13 @@ class MicropyGPS(object):
         :return: string
         """
         if self.coord_format == 'dd':
-            formatted_longitude = self.longitude
-            lon_string = str(formatted_longitude) + '°'
+            return str(self.longitude) + '°'
         elif self.coord_format == 'dms':
-            formatted_longitude = self.longitude
-            lon_string = str(formatted_longitude[0]) + '° ' + str(formatted_longitude[1]) + "' " + str(formatted_longitude[2]) + '" ' + str(formatted_longitude[3])
+            d, m, s, hemi = self.longitude
+            return str(d) + '° ' + str(m) + "' " + str(s) + '" ' + str(hemi)
         else:
-            lon_string = str(self._longitude[0]) + '° ' + str(self._longitude[1]) + "' " + str(self._longitude[2])
-        return lon_string
+            d, dm, hemi = self._longitude
+            return str(d) + '° ' + str(dm) + "' " + str(hemi)
 
     def speed_string(self, unit='kph'):
         """
@@ -751,19 +732,18 @@ class MicropyGPS(object):
         :return:
         """
         if unit == 'mph':
-            speed_string = str(self.speed[1]) + ' mph'
+            spd = self.speed * 1.151
 
         elif unit == 'knot':
-            if self.speed[0] == 1:
-                unit_str = ' knot'
-            else:
-                unit_str = ' knots'
-            speed_string = str(self.speed[0]) + unit_str
+            if self.speed != 1:
+                unit = 'knots'
+            spd = self.speed
 
         else:
-            speed_string = str(self.speed[2]) + ' km/h'
+            unit = 'km/h'
+            spd = self.speed * 1.852
 
-        return speed_string
+        return f'{spd} {unit}'
 
     def date_string(self, formatting='s_mdy', century='20'):
         """
@@ -773,7 +753,7 @@ class MicropyGPS(object):
         11/01/2014 (MM/DD/YYYY)
         01/11/2014 (DD/MM/YYYY)
         :param formatting: string 's_mdy', 's_dmy', or 'long'
-        :param century: int delineating the century the GPS data is from (19 for 19XX, 20 for 20XX)
+        :param century: int(or str) delineating the century the GPS data is from (19 for 19XX, 20 for 20XX)
         :return: date_string  string with long or short format date
         """
 
@@ -783,46 +763,34 @@ class MicropyGPS(object):
             month = self.__MONTHS[self.date[1] - 1]
 
             # Determine Date Suffix
-            if self.date[0] in (1, 21, 31):
-                suffix = 'st'
-            elif self.date[0] in (2, 22):
-                suffix = 'nd'
-            elif self.date[0] in (3, 23):
-                suffix = 'rd'
+            st_nd_rd = {1:'st', 21:'st', 31:'st', 2:'nd', 22:'nd', 3:'rd', 23:'rd'}
+            if self.date[0] in st_nd_rd:
+                suffix = st_nd_rd[self.date[0]]
             else:
                 suffix = 'th'
 
-            day = str(self.date[0]) + suffix  # Create Day String
+            day = f'{self.date[0]}{suffix}'  # Create Day String
 
-            year = century + str(self.date[2])  # Create Year String
+            year = f'{century}{self.date[2]}'  # Create Year String
 
-            date_string = month + ' ' + day + ', ' + year  # Put it all together
+            date_string = f'{month} {day}, {year}'  # Put it all together
 
         else:
             # Add leading zeros to day string if necessary
-            if self.date[0] < 10:
-                day = '0' + str(self.date[0])
-            else:
-                day = str(self.date[0])
+            day = f'{self.date[0]:02d}'
 
             # Add leading zeros to month string if necessary
-            if self.date[1] < 10:
-                month = '0' + str(self.date[1])
-            else:
-                month = str(self.date[1])
+            month = f'{self.date[1]:02d}'
 
             # Add leading zeros to year string if necessary
-            if self.date[2] < 10:
-                year = '0' + str(self.date[2])
-            else:
-                year = str(self.date[2])
+            year = f'{century}{self.date[2]:02d}'
 
             # Build final string based on desired formatting
             if formatting == 's_dmy':
-                date_string = day + '/' + month + '/' + year
+                date_string = f'{day}/{month}/{year}'
 
             else:  # Default date format
-                date_string = month + '/' + day + '/' + year
+                date_string = f'{month}/{day}/{year}'
 
         return date_string
 
