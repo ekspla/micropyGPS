@@ -111,14 +111,14 @@ class MicropyGPS(object):
     @property
     def latitude(self):
         """Format Latitude Data Correctly"""
-        return self.__format_lat_lon(self._latitude)
+        return self.__conv_lat_lon(self._latitude)
 
     @property
     def longitude(self):
         """Format Longitude Data Correctly"""
-        return self.__format_lat_lon(self._longitude)
+        return self.__conv_lat_lon(self._longitude)
 
-    def __format_lat_lon(self, lat_lon):
+    def __conv_lat_lon(self, lat_lon):
         if self.coord_format == 'dd':
             decimal_degrees = lat_lon[0] + (lat_lon[1] / 60)
             sign_dd = (lat_lon[2] in {'N', 'E'}) - (lat_lon[2] in {'S', 'W'})
@@ -174,15 +174,9 @@ class MicropyGPS(object):
     ########################################
     # Sentence Parsers
     ########################################
-    def gprmc(self):
-        """Parse Recommended Minimum Specific GPS/Transit data (RMC)Sentence.
-        Updates UTC timestamp, latitude, longitude, Course, Speed, Date, and fix status
-        """
-
+    def __parse_time(self, utc_string):
         # UTC Timestamp
         try:
-            utc_string = self.gps_segments[1]
-
             if utc_string:  # Possible timestamp found
                 hours = (int(utc_string[0:2]) + self.local_offset) % 24
                 minutes = int(utc_string[2:4])
@@ -192,8 +186,40 @@ class MicropyGPS(object):
                 self.timestamp = (hours, minutes, seconds)
             else:  # No Time stamp yet
                 self.timestamp = self.CLEAR_TIME
-
         except ValueError:  # Bad Timestamp value present
+            return False
+        return True
+
+    def __parse_lat_lon(self, lat, lon):
+        try:
+            # Latitude
+            lat_str, lat_hemi = lat
+            if lat_hemi not in self.__HEMISPHERES:
+                return None
+            lat_degs = int(lat_str[0:2])
+            lat_mins = float(lat_str[2:])
+
+            # Longitude
+            lon_str, lon_hemi = lon
+            if lon_hemi not in self.__HEMISPHERES:
+                return None
+            lon_degs = int(lon_str[0:3])
+            lon_mins = float(lon_str[3:])
+        except ValueError:
+            return None
+        return (lat_degs, lat_mins, lon_degs, lon_mins)
+
+    def gprmc(self):
+        """Parse Recommended Minimum Specific GPS/Transit data (RMC)Sentence.
+        Updates UTC timestamp, latitude, longitude, Course, Speed, Date, and fix status
+        """
+
+        # UTC Timestamp
+        try:
+            utc_string = self.gps_segments[1]
+        except IndexError:
+            return False
+        if not self.__parse_time(utc_string):
             return False
 
         # Date stamp
@@ -218,23 +244,16 @@ class MicropyGPS(object):
 
             # Longitude / Latitude
             try:
-                # Latitude
                 lat_hemi = self.gps_segments[4]
-                if lat_hemi not in self.__HEMISPHERES:
-                    return False
-                l_string = self.gps_segments[3]
-                lat_degs = int(l_string[0:2])
-                lat_mins = float(l_string[2:])
-
-                # Longitude
+                lat = self.gps_segments[3], lat_hemi
                 lon_hemi = self.gps_segments[6]
-                if lon_hemi not in self.__HEMISPHERES:
-                    return False
-                l_string = self.gps_segments[5]
-                lon_degs = int(l_string[0:3])
-                lon_mins = float(l_string[3:])
-            except ValueError:
+                lon = self.gps_segments[5], lon_hemi
+            except IndexError:
                 return False
+            parsed = self.__parse_lat_lon(lat, lon)
+            if not parsed:
+                return False
+            lat_degs, lat_mins, lon_degs, lon_mins = parsed
 
             # Speed
             try:
@@ -279,18 +298,9 @@ class MicropyGPS(object):
         # UTC Timestamp
         try:
             utc_string = self.gps_segments[5]
-
-            if utc_string:  # Possible timestamp found
-                hours = (int(utc_string[0:2]) + self.local_offset) % 24
-                minutes = int(utc_string[2:4])
-                seconds = float(utc_string[4:])
-                if seconds >= 60.0 or minutes >= 60:
-                    return False 
-                self.timestamp = (hours, minutes, seconds)
-            else:  # No Time stamp yet
-                self.timestamp = self.CLEAR_TIME
-
-        except ValueError:  # Bad Timestamp value present
+        except IndexError:
+            return False
+        if not self.__parse_time(utc_string):
             return False
 
         # Check Receiver Data Valid Flag
@@ -298,23 +308,16 @@ class MicropyGPS(object):
 
             # Longitude / Latitude
             try:
-                # Latitude
                 lat_hemi = self.gps_segments[2]
-                if lat_hemi not in self.__HEMISPHERES:
-                    return False
-                l_string = self.gps_segments[1]
-                lat_degs = int(l_string[0:2])
-                lat_mins = float(l_string[2:])
-
-                # Longitude
+                lat = self.gps_segments[1], lat_hemi
                 lon_hemi = self.gps_segments[4]
-                if lon_hemi not in self.__HEMISPHERES:
-                    return False
-                l_string = self.gps_segments[3]
-                lon_degs = int(l_string[0:3])
-                lon_mins = float(l_string[3:])
-            except ValueError:
+                lon = self.gps_segments[3], lon_hemi
+            except IndexError:
                 return False
+            parsed = self.__parse_lat_lon(lat, lon)
+            if not parsed:
+                return False
+            lat_degs, lat_mins, lon_degs, lon_mins = parsed
 
             # Update Object Data
             self._latitude = (lat_degs, lat_mins, lat_hemi)
@@ -348,22 +351,15 @@ class MicropyGPS(object):
         """Parse Global Positioning System Fix Data (GGA) Sentence. Updates UTC timestamp, latitude, longitude,
         fix status, satellites in use, Horizontal Dilution of Precision (HDOP), altitude, geoid height and fix status"""
 
+        # UTC Timestamp
         try:
-            # UTC Timestamp
             utc_string = self.gps_segments[1]
+        except IndexError:
+            return False
+        if not self.__parse_time(utc_string):
+            return False
 
-            # Skip timestamp if receiver doesn't have on yet
-            if utc_string:
-                hours = (int(utc_string[0:2]) + self.local_offset) % 24
-                minutes = int(utc_string[2:4])
-                seconds = float(utc_string[4:])
-                if seconds >= 60.0 or minutes >= 60:
-                    return False 
-                self.timestamp = (hours, minutes, seconds)
-
-            else:
-                self.timestamp = self.CLEAR_TIME
-
+        try:
             # Number of Satellites in Use
             satellites_in_use = int(self.gps_segments[7])
 
@@ -384,23 +380,16 @@ class MicropyGPS(object):
 
             # Longitude / Latitude
             try:
-                # Latitude
                 lat_hemi = self.gps_segments[3]
-                if lat_hemi not in self.__HEMISPHERES:
-                    return False
-                l_string = self.gps_segments[2]
-                lat_degs = int(l_string[0:2])
-                lat_mins = float(l_string[2:])
-
-                # Longitude
+                lat = self.gps_segments[2], lat_hemi
                 lon_hemi = self.gps_segments[5]
-                if lon_hemi not in self.__HEMISPHERES:
-                    return False
-                l_string = self.gps_segments[4]
-                lon_degs = int(l_string[0:3])
-                lon_mins = float(l_string[3:])
-            except ValueError:
+                lon = self.gps_segments[4], lon_hemi
+            except IndexError:
                 return False
+            parsed = self.__parse_lat_lon(lat, lon)
+            if not parsed:
+                return False
+            lat_degs, lat_mins, lon_degs, lon_mins = parsed
 
             # Altitude / Height Above Geoid
             try:
@@ -697,39 +686,40 @@ class MicropyGPS(object):
 
         return self.__DIRECTIONS[dir_index]
 
+    def __pp_lat_lon(self, lat_lon):
+        """
+        Prettify latitude/longitude strings.
+        :return: string
+        """
+        deg, min, sec = '°', "'", '"'
+        if self.coord_format == 'dd':
+            return f'{lat_lon}{deg}'
+        elif self.coord_format == 'dms':
+            d, m, s, hemi = lat_lon
+            return f'{d}{deg} {m}{min} {s}{sec} {hemi}'
+        else:
+            d, dm, hemi = lat_lon
+            return f'{d}{deg} {dm}{min} {hemi}'
+
     def latitude_string(self):
         """
         Create a readable string of the current latitude data
         :return: string
         """
-        if self.coord_format == 'dd':
-            return str(self.latitude) + '°'
-        elif self.coord_format == 'dms':
-            d, m, s, hemi = self.latitude
-            return str(d) + '° ' + str(m) + "' " + str(s) + '" ' + str(hemi)
-        else:
-            d, dm, hemi = self._latitude
-            return str(d) + '° ' + str(dm) + "' " + str(hemi)
+        return self.__pp_lat_lon(self.latitude)
 
     def longitude_string(self):
         """
         Create a readable string of the current longitude data
         :return: string
         """
-        if self.coord_format == 'dd':
-            return str(self.longitude) + '°'
-        elif self.coord_format == 'dms':
-            d, m, s, hemi = self.longitude
-            return str(d) + '° ' + str(m) + "' " + str(s) + '" ' + str(hemi)
-        else:
-            d, dm, hemi = self._longitude
-            return str(d) + '° ' + str(dm) + "' " + str(hemi)
+        return self.__pp_lat_lon(self.longitude)
 
     def speed_string(self, unit='kph'):
         """
         Creates a readable string of the current speed data in one of three units
         :param unit: string of 'kph','mph, or 'knot'
-        :return:
+        :return: string
         """
         if unit == 'mph':
             spd = self.speed * 1.151
