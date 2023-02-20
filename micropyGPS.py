@@ -43,6 +43,7 @@ class MicropyGPS(object):
     CLEAR_TIME = (0, 0, 0.0)
     CLEAR_LAT = (0, 0.0, 'N')
     CLEAR_LON = (0, 0.0, 'W')
+    __buf = [] # Buffer for MicropyGPS.update()
 
     def __init__(self, local_offset=0, location_formatting='ddm'):
         """
@@ -195,19 +196,23 @@ class MicropyGPS(object):
             # Latitude
             lat_str, lat_hemi = lat
             if lat_hemi not in self.__HEMISPHERES:
-                return None
+                return False
             lat_degs = int(lat_str[0:2])
             lat_mins = float(lat_str[2:])
 
             # Longitude
             lon_str, lon_hemi = lon
             if lon_hemi not in self.__HEMISPHERES:
-                return None
+                return False
             lon_degs = int(lon_str[0:3])
             lon_mins = float(lon_str[3:])
+
+            self._latitude = (lat_degs, lat_mins, lat_hemi)
+            self._longitude = (lon_degs, lon_mins, lon_hemi)
+            return True
+
         except ValueError:
-            return None
-        return (lat_degs, lat_mins, lon_degs, lon_mins)
+            return False
 
     def gprmc(self):
         """Parse Recommended Minimum Specific GPS/Transit data (RMC)Sentence.
@@ -253,7 +258,6 @@ class MicropyGPS(object):
             parsed = self.__parse_lat_lon(lat, lon)
             if not parsed:
                 return False
-            lat_degs, lat_mins, lon_degs, lon_mins = parsed
 
             # Speed
             try:
@@ -273,8 +277,6 @@ class MicropyGPS(object):
             # TODO - Add Magnetic Variation
 
             # Update Object Data
-            self._latitude = (lat_degs, lat_mins, lat_hemi)
-            self._longitude = (lon_degs, lon_mins, lon_hemi)
             self.speed = spd_knt
             self.course = course
             self.valid = True
@@ -317,11 +319,8 @@ class MicropyGPS(object):
             parsed = self.__parse_lat_lon(lat, lon)
             if not parsed:
                 return False
-            lat_degs, lat_mins, lon_degs, lon_mins = parsed
 
             # Update Object Data
-            self._latitude = (lat_degs, lat_mins, lat_hemi)
-            self._longitude = (lon_degs, lon_mins, lon_hemi)
             self.valid = True
 
             # Update Last Fix Time
@@ -389,7 +388,6 @@ class MicropyGPS(object):
             parsed = self.__parse_lat_lon(lat, lon)
             if not parsed:
                 return False
-            lat_degs, lat_mins, lon_degs, lon_mins = parsed
 
             # Altitude / Height Above Geoid
             try:
@@ -400,8 +398,6 @@ class MicropyGPS(object):
                 geoid_height = 0.0
 
             # Update Object Data
-            self._latitude = (lat_degs, lat_mins, lat_hemi)
-            self._longitude = (lon_degs, lon_mins, lon_hemi)
             self.altitude = altitude
             self.geoid_height = geoid_height
 
@@ -543,6 +539,11 @@ class MicropyGPS(object):
         self.sentence_active = True
         self.process_crc = True
         self.char_count = 0
+        self.__buf = []
+
+    def __update_segment(self):
+        self.gps_segments[self.active_segment] = ''.join(self.__buf)
+        self.__buf = []
 
     def update(self, new_char):
         """Process a new input char and updates GPS object if necessary based on special characters ('$', ',', '*')
@@ -572,6 +573,7 @@ class MicropyGPS(object):
                 # Check if sentence is ending (*)
                 if new_char == '*':
                     self.process_crc = False
+                    self.__update_segment()
                     self.active_segment += 1
                     self.gps_segments.append('')
                     return None
@@ -579,17 +581,19 @@ class MicropyGPS(object):
                 # Check if a section is ended (,), Create a new substring to feed
                 # characters to
                 elif new_char == ',':
+                    self.__update_segment()
                     self.active_segment += 1
                     self.gps_segments.append('')
 
                 # Store All Other printable character and check CRC when ready
                 else:
-                    self.gps_segments[self.active_segment] += new_char
+                    self.__buf.append(new_char)
 
                     # When CRC input is disabled, sentence is nearly complete
                     if not self.process_crc:
 
-                        if len(self.gps_segments[self.active_segment]) == 2:
+                        if len(self.__buf) == 2:
+                            self.__update_segment()
                             try:
                                 final_crc = int(self.gps_segments[self.active_segment], 16)
                                 if self.crc_xor == final_crc:
