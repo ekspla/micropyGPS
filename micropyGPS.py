@@ -555,7 +555,7 @@ class MicropyGPS(object):
         # Validate new_char is a printable char
         ascii_char = ord(new_char)
 
-        if 20 <= ascii_char <= 126:
+        if 20 <= ascii_char <= 126 or ascii_char in {10, 13}:
         #if 10 <= ascii_char <= 126: # cf. LF := 0x0a = 10, CR := 0x0d = 13.
             self.char_count += 1
 
