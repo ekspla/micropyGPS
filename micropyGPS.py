@@ -187,9 +187,9 @@ class MicropyGPS(object):
                 self.timestamp = (hours, minutes, seconds)
             else:  # No Time stamp yet
                 self.timestamp = self.CLEAR_TIME
+            return True
         except ValueError:  # Bad Timestamp value present
             return False
-        return True
 
     def __parse_lat_lon(self, lat, lon):
         try:
@@ -255,8 +255,7 @@ class MicropyGPS(object):
                 lon = self.gps_segments[5], lon_hemi
             except IndexError:
                 return False
-            parsed = self.__parse_lat_lon(lat, lon)
-            if not parsed:
+            if not self.__parse_lat_lon(lat, lon):
                 return False
 
             # Speed
@@ -316,8 +315,7 @@ class MicropyGPS(object):
                 lon = self.gps_segments[3], lon_hemi
             except IndexError:
                 return False
-            parsed = self.__parse_lat_lon(lat, lon)
-            if not parsed:
+            if not self.__parse_lat_lon(lat, lon):
                 return False
 
             # Update Object Data
@@ -385,8 +383,7 @@ class MicropyGPS(object):
                 lon = self.gps_segments[4], lon_hemi
             except IndexError:
                 return False
-            parsed = self.__parse_lat_lon(lat, lon)
-            if not parsed:
+            if not self.__parse_lat_lon(lat, lon):
                 return False
 
             # Altitude / Height Above Geoid
