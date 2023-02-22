@@ -214,9 +214,9 @@ my_gps.compass_direction()
 >>> my_gps.date_string('long','19')
 'September 13th, 1998'
 >>> my_gps.date_string('s_mdy')
-'09/13/98'
+'09/13/1998'
 >>> my_gps.date_string('s_dmy')
-'13/09/98'
+'13/09/1998'
 ```
 ## Pyboard Usage
 
