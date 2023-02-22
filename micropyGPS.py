@@ -595,26 +595,26 @@ class MicropyGPS(object):
                     self.__update_segment()
                     try:
                         final_crc = int(self.gps_segments[self.active_segment], 16)
-
-                        # If a Valid Sentence Was received and it's a supported sentence, then parse it!!
-                        if self.crc_xor == final_crc:
-                            self.clean_sentences += 1  # Increment clean sentences received
-                            self.sentence_active = False  # Clear Active Processing Flag
-
-                            if self.gps_segments[0] in self.supported_sentences:
-
-                                # parse the Sentence Based on the message type, return True if parse is clean
-                                if self.supported_sentences[self.gps_segments[0]](self):
-
-                                # Let host know that the GPS object was updated by returning parsed sentence type
-                                    self.parsed_sentences += 1
-                                    return self.gps_segments[0]
-
-                        else:
-                            self.crc_fails += 1
                     except ValueError:
-                        pass  # CRC Value was deformed and could not have been correct
+                        # CRC Value was deformed and could not have been correct
+                        return None
 
+                    # If a Valid Sentence Was received and it's a supported sentence, then parse it!!
+                    if self.crc_xor == final_crc:
+                        self.clean_sentences += 1  # Increment clean sentences received
+                        self.sentence_active = False  # Clear Active Processing Flag
+
+                        if self.gps_segments[0] in self.supported_sentences:
+
+                            # parse the Sentence Based on the message type, return True if parse is clean
+                            if self.supported_sentences[self.gps_segments[0]](self):
+
+                            # Let host know that the GPS object was updated by returning parsed sentence type
+                                self.parsed_sentences += 1
+                                return self.gps_segments[0]
+
+                    else:
+                        self.crc_fails += 1
 
                 # Check that the sentence buffer isn't filling up with Garage waiting for the sentence to complete
                 if self.char_count > self.SENTENCE_LIMIT:
