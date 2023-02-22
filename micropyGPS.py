@@ -567,56 +567,54 @@ class MicropyGPS(object):
 
             elif self.sentence_active:
 
+                # Check if a section is ended (,), Create a new substring to feed
+                # characters to
+                if new_char == ',':
+                    self.__update_segment()
+                    self.active_segment += 1
+                    self.gps_segments.append('')
+
                 # Check if sentence is ending (*)
-                if new_char == '*':
+                elif new_char == '*':
                     self.process_crc = False
                     self.__update_segment()
                     self.active_segment += 1
                     self.gps_segments.append('')
                     return None
 
-                # Check if a section is ended (,), Create a new substring to feed
-                # characters to
-                elif new_char == ',':
-                    self.__update_segment()
-                    self.active_segment += 1
-                    self.gps_segments.append('')
-
                 # Store All Other printable character and check CRC when ready
                 else:
                     self.__buf.append(new_char)
-
-                    # When CRC input is disabled, sentence is nearly complete
-                    if not self.process_crc:
-
-                        if len(self.__buf) == 2:
-                            self.__update_segment()
-                            try:
-                                final_crc = int(self.gps_segments[self.active_segment], 16)
-                                if self.crc_xor == final_crc:
-                                    valid_sentence = True
-                                else:
-                                    self.crc_fails += 1
-                            except ValueError:
-                                pass  # CRC Value was deformed and could not have been correct
 
                 # Update CRC
                 if self.process_crc:
                     self.crc_xor ^= ascii_char
 
-                # If a Valid Sentence Was received and it's a supported sentence, then parse it!!
-                if valid_sentence:
-                    self.clean_sentences += 1  # Increment clean sentences received
-                    self.sentence_active = False  # Clear Active Processing Flag
+                # When CRC input is disabled, sentence is nearly complete
+                elif len(self.__buf) == 2:
+                    self.__update_segment()
+                    try:
+                        final_crc = int(self.gps_segments[self.active_segment], 16)
 
-                    if self.gps_segments[0] in self.supported_sentences:
+                        # If a Valid Sentence Was received and it's a supported sentence, then parse it!!
+                        if self.crc_xor == final_crc:
+                            self.clean_sentences += 1  # Increment clean sentences received
+                            self.sentence_active = False  # Clear Active Processing Flag
 
-                        # parse the Sentence Based on the message type, return True if parse is clean
-                        if self.supported_sentences[self.gps_segments[0]](self):
+                            if self.gps_segments[0] in self.supported_sentences:
 
-                            # Let host know that the GPS object was updated by returning parsed sentence type
-                            self.parsed_sentences += 1
-                            return self.gps_segments[0]
+                                # parse the Sentence Based on the message type, return True if parse is clean
+                                if self.supported_sentences[self.gps_segments[0]](self):
+
+                                # Let host know that the GPS object was updated by returning parsed sentence type
+                                    self.parsed_sentences += 1
+                                    return self.gps_segments[0]
+
+                        else:
+                            self.crc_fails += 1
+                    except ValueError:
+                        pass  # CRC Value was deformed and could not have been correct
+
 
                 # Check that the sentence buffer isn't filling up with Garage waiting for the sentence to complete
                 if self.char_count > self.SENTENCE_LIMIT:
