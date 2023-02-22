@@ -10,8 +10,6 @@
 # More Helper Functions
 # Dynamically limit sentences types to parse
 
-from math import floor, modf
-
 # Import utime or time for fix time handling
 try:
     # Assume running on MicroPython
@@ -48,7 +46,7 @@ class MicropyGPS(object):
     def __init__(self, local_offset=0, location_formatting='ddm'):
         """
         Setup GPS Object Status Flags, Internal Data Registers, etc
-            local_offset (int): Timzone Difference to UTC
+            local_offset (int): Timezone Difference to UTC
             location_formatting (str): Style For Presenting Longitude/Latitude:
                                        Decimal Degree Minute (ddm) - 40° 26.767′ N
                                        Degrees Minutes Seconds (dms) - 40° 26′ 46″ N
@@ -125,7 +123,7 @@ class MicropyGPS(object):
             sign_dd = (lat_lon[2] in {'N', 'E'}) - (lat_lon[2] in {'S', 'W'})
             return sign_dd * decimal_degrees
         elif self.coord_format == 'dms':
-            minute_parts = modf(lat_lon[1])
+            minute_parts = lat_lon[1] % 1, lat_lon[1] // 1
             seconds = round(minute_parts[0] * 60)
             return (lat_lon[0], int(minute_parts[1]), seconds, lat_lon[2])
         else:
@@ -489,22 +487,22 @@ class MicropyGPS(object):
             # If a PRN is present, grab satellite data
             try:
                 sat_id = int(self.gps_segments[sats])
-            except (ValueError,IndexError):
+            except (ValueError, IndexError):
                 return False
 
             try:  # elevation can be null (no value) when not tracking
                 elevation = int(self.gps_segments[sats+1])
-            except (ValueError,IndexError):
+            except (ValueError, IndexError):
                 elevation = None
 
             try:  # azimuth can be null (no value) when not tracking
                 azimuth = int(self.gps_segments[sats+2])
-            except (ValueError,IndexError):
+            except (ValueError, IndexError):
                 azimuth = None
 
             try:  # SNR can be null (no value) when not tracking
                 snr = int(self.gps_segments[sats+3])
-            except (ValueError,IndexError):
+            except (ValueError, IndexError):
                 snr = None
             # Add Satellite Data to Sentence Dict
             satellite_dict[sat_id] = (elevation, azimuth, snr)
@@ -682,7 +680,7 @@ class MicropyGPS(object):
         offset_course = (self.course + 11.25) % 360.0
 
         # Each compass point is separated by 22.5 degrees, divide to find lookup value
-        dir_index = floor(offset_course / 22.5)
+        dir_index = offset_course // 22.5
 
         return self.__DIRECTIONS[dir_index]
 
