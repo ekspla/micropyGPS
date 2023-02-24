@@ -101,10 +101,10 @@ Data successfully parsed from valid sentences is stored in easily accessible obj
 >>> my_gps.geoid_height
 -34.0
 ```
-Current speed is stored in a tuple of values representing knots, miles per hours and kilometers per hour
+Current speed stored in knots can be converted to miles per hour and kilometers per hour using a helper function (speed_string()).
 ```sh
 >>> my_gps.speed
-(5.5, 6.3305, 10.186)
+5.5
 ```
 
 ### Time and Date
