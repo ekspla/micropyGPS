@@ -121,7 +121,10 @@ class MicropyGPS(object):
         return self.__conv_lat_lon(self._longitude)
 
     def __conv_lat_lon(self, lat_lon):
-        """ Coordinate Format ('dd', 'dms', 'ddm') Conversions """
+        """ Coordinate Format ('dd', 'dms', 'ddm') Conversions from 'ddm' 
+        Returns a signed value in dd, a tuple in dms/ddm format.
+        Positive and negative values in dd format indicate N/E and S/W, respectively.
+        """
         if self.coord_format == 'dd':
             decimal_degrees = lat_lon[0] + (lat_lon[1] / 60)
             sign_dd = (lat_lon[2] in {'N', 'E'}) - (lat_lon[2] in {'S', 'W'})
@@ -173,12 +176,14 @@ class MicropyGPS(object):
     # Sentence parsers
     ########################################
     def __parse_time(self, utc_string):
-        """Parse timestamps from strings.
+        """Parses timestamps from strings.
+        Stores the parsed tuples (8, 18, 36.0) or (18, 0, 41.896)
+        in self.timestamp.  Returns True if success.
 
         >>> __parse_time('081836')
-        (8, 18, 36.0)
+        True
         >>> __parse_time('180041.896')
-        (18, 0, 41.896)
+        True
         """
 
         # UTC timestamp
@@ -197,10 +202,12 @@ class MicropyGPS(object):
             return False
 
     def __parse_lat_lon(self, lat, lon):
-        """Parse latitudes and logitudes from str tuples.
+        """Parses latitudes and logitudes from str tuples.
+        Stores the parsed tuples (37, 51.65, 'S') and (145, 7.36, 'E'), respectively,
+        in self._latitude and self._longitude.  Returns True if success.
 
         >>> __parse_lat_lon(('3751.65', 'S'), ('14507.36', 'E'))
-        ((37, 51.65, 'S'), (145, 7.36, 'E'))
+        True
         """
 
         try:
@@ -227,7 +234,7 @@ class MicropyGPS(object):
 
     def gprmc(self):
         """
-        Parse Recommended Minimum Specific GPS/Transit data (RMC)Sentence.
+        Parse Recommended Minimum Specific GPS/Transit data (RMC) Sentence.
         Updates UTC timestamp, latitude, longitude, course, speed, date, and fix status
         """
 
@@ -302,7 +309,7 @@ class MicropyGPS(object):
 
     def gpgll(self):
         """
-        Parse Geographic Latitude and Longitude (GLL)Sentence. Updates UTC timestamp, latitude,
+        Parse Geographic Latitude and Longitude (GLL) Sentence. Updates UTC timestamp, latitude,
         longitude, and fix status
         """
 
