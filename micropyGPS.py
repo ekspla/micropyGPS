@@ -561,7 +561,6 @@ class MicropyGPS(object):
             # Check if a new string is starting ($)
             if new_char == '$':
                 self.new_sentence()
-                return None
 
             elif self.sentence_active:
 
@@ -618,6 +617,10 @@ class MicropyGPS(object):
                 if self.char_count > self.SENTENCE_LIMIT:
                     self.sentence_active = False
 
+                # Limit sentence types
+                if self.active_segment == 1 and self.gps_segments[0] not in self.supported_sentences:
+                    self.sentence_active = False
+
         # Tell Host no new sentence was parsed
         return None
 
@@ -633,7 +636,7 @@ class MicropyGPS(object):
 
     def satellite_data_updated(self):
         """
-        Checks if the all the GSV sentences in a group have been read, making satellite data complete
+        Checks if all the GSV sentences in a group have been read, making satellite data complete
         :return: boolean
         """
         if self.total_sv_sentences > 0 and self.total_sv_sentences == self.last_sv_sentence:
@@ -655,7 +658,7 @@ class MicropyGPS(object):
         return list(self.satellite_data.keys())
 
     def time_since_fix(self):
-        """Returns number of millisecond since the last sentence with a valid fix was parsed. Returns 0 if
+        """Returns number of millisecond since the last sentence with a valid fix was parsed. Returns -1 if
         no fix has been found"""
 
         # Test if a Fix has been found
