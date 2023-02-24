@@ -643,13 +643,11 @@ class MicropyGPS(object):
                     else:
                         self.crc_fails += 1
 
+                # Limit sentence types.  Can be controlled by supported_sentences (see below).
                 # Check that the sentence buffer isn't filling up with garbage waiting for the sentence 
                 # to complete
-                if self.char_count > self.SENTENCE_LIMIT:
-                    self.sentence_active = False
-
-                # Limit sentence types.  Can be controlled by supported_sentences (see below).
-                if self.active_segment == 1 and self.gps_segments[0] not in self.supported_sentences:
+                if (self.active_segment == 1 and self.gps_segments[0] not in self.supported_sentences or
+                    self.char_count > self.SENTENCE_LIMIT):
                     self.sentence_active = False
 
         # Tell host no new sentence was parsed
