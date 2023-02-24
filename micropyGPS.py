@@ -714,7 +714,7 @@ class MicropyGPS(object):
         # Calculate the offset for a rotated compass
         offset_course = (self.course + 11.25) % 360.0
         # Each compass point is separated by 22.5 degrees, divide to find lookup value
-        dir_index = offset_course // 22.5
+        dir_index = int(offset_course // 22.5)
         return self.__DIRECTIONS[dir_index]
 
     def __pp_lat_lon(self, lat_lon):
