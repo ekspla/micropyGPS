@@ -180,7 +180,7 @@ gll_latitude = [(37, 11.0942, 'N'),
 gll_timestamp = [(0, 8, 12.0),
                  (22, 54, 44.0),
                  (9, 22, 4.999),
-                 (23, 59, 47.0)]
+                 (9, 22, 4.999)]
 gll_valid = [True, True, True, False]
 
 

@@ -243,7 +243,7 @@ class MicropyGPS(object):
             status = self.gps_segments[2]
         except IndexError:
             return False
-        if status == 'A':  # Data from receiver is not Valid/Has Fix
+        if status == 'A':  # Data from receiver is Valid/Has Fix
 
             # UTC timestamp
             utc_string = self.gps_segments[1]
@@ -305,7 +305,9 @@ class MicropyGPS(object):
             self.speed = 0.0
             self.course = 0.0
             self.valid = False
-            return False
+            # Do we have to clear timestamp and date?
+
+            return True # Should it to be False?
 
     def gpgll(self):
         """
@@ -313,25 +315,23 @@ class MicropyGPS(object):
         longitude, and fix status
         """
 
-        # UTC timestamp
+        # Check receiver data valid flag
         try:
-            utc_string = self.gps_segments[5]
+            status = self.gps_segments[6]
         except IndexError:
             return False
-        if not self.__parse_time(utc_string):
-            return False
+        if status == 'A':  # Data from receiver is Valid/Has Fix
 
-        # Check receiver data valid flag
-        if self.gps_segments[6] == 'A':  # Data from receiver is Valid/Has Fix
+            # UTC timestamp
+            utc_string = self.gps_segments[5]
+            if not self.__parse_time(utc_string):
+                return False
 
             # Longitude / Latitude
-            try:
-                lat_hemi = self.gps_segments[2]
-                lat = self.gps_segments[1], lat_hemi
-                lon_hemi = self.gps_segments[4]
-                lon = self.gps_segments[3], lon_hemi
-            except IndexError:
-                return False
+            lat_hemi = self.gps_segments[2]
+            lat = self.gps_segments[1], lat_hemi
+            lon_hemi = self.gps_segments[4]
+            lon = self.gps_segments[3], lon_hemi
             if not self.__parse_lat_lon(lat, lon):
                 return False
 
@@ -340,13 +340,15 @@ class MicropyGPS(object):
 
             # Update last fix time
             self.new_fix_time()
+            return True
 
         else:  # Clear position data if sentence is 'Invalid'
             self._latitude = self.CLEAR_LAT
             self._longitude = self.CLEAR_LON
             self.valid = False
+            # Do we have to clear timestamp and date?
 
-        return True
+            return True # Should it to be False ?
 
     def gpvtg(self):
         """Parse Track Made Good and Ground Speed (VTG) Sentence. Updates speed and course"""
