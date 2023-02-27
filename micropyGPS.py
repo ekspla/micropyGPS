@@ -577,8 +577,6 @@ class MicropyGPS(object):
         sentence function.  Returns sentence type (e.g. 'GPRMC') on successful parse, None otherwise
         """
 
-        valid_sentence = False
-
         # Validate new_char is a printable char. cf. SP := 0x20 = 32, LF := 0x0a = 10, CR := 0x0d = 13.
         ascii_char = ord(new_char)
         if 32 <= ascii_char <= 126 or ascii_char in {10, 13}:
