@@ -348,7 +348,7 @@ class MicropyGPS(object):
             self.valid = False
             # Do we have to clear timestamp and date?
 
-            return True # Should it to be False ?
+            return True # Should it to be False?
 
     def gpvtg(self):
         """Parse Track Made Good and Ground Speed (VTG) Sentence. Updates speed and course"""
@@ -401,13 +401,10 @@ class MicropyGPS(object):
         if fix_stat:
 
             # Longitude / Latitude
-            try:
-                lat_hemi = self.gps_segments[3]
-                lat = self.gps_segments[2], lat_hemi
-                lon_hemi = self.gps_segments[5]
-                lon = self.gps_segments[4], lon_hemi
-            except IndexError:
-                return False
+            lat_hemi = self.gps_segments[3]
+            lat = self.gps_segments[2], lat_hemi
+            lon_hemi = self.gps_segments[5]
+            lon = self.gps_segments[4], lon_hemi
             if not self.__parse_lat_lon(lat, lon):
                 return False
 
