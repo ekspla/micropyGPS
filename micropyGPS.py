@@ -238,38 +238,36 @@ class MicropyGPS(object):
         Updates UTC timestamp, latitude, longitude, course, speed, date, and fix status
         """
 
-        # UTC timestamp
+        # Check receiver data valid flag
         try:
-            utc_string = self.gps_segments[1]
+            status = self.gps_segments[2]
         except IndexError:
             return False
-        if not self.__parse_time(utc_string):
-            return False
+        if status == 'A':  # Data from receiver is not Valid/Has Fix
 
-        # Date stamp
-        try:
-            date_string = self.gps_segments[9]
-            if date_string:  # Possible date stamp found
-                day = int(date_string[0:2])
-                month = int(date_string[2:4])
-                year = int(date_string[4:6])
-                self.date = (day, month, year)
-            else:  # No Date stamp yet
-                self.date = self.CLEAR_DATE
-        except (ValueError, IndexError):  # Bad date stamp value present
-            return False
+            # UTC timestamp
+            utc_string = self.gps_segments[1]
+            if not self.__parse_time(utc_string):
+                return False
 
-        # Check receiver data valid flag
-        if self.gps_segments[2] == 'A':  # Data from receiver is Valid/Has Fix
+            # Date stamp
+            try:
+                date_string = self.gps_segments[9]
+                if date_string:  # Possible date stamp found
+                    day = int(date_string[0:2])
+                    month = int(date_string[2:4])
+                    year = int(date_string[4:6])
+                    self.date = (day, month, year)
+                else:  # No Date stamp yet
+                     self.date = self.CLEAR_DATE
+            except (ValueError, IndexError):  # Bad date stamp value present
+                return False
 
             # Longitude / Latitude
-            try:
-                lat_hemi = self.gps_segments[4]
-                lat = self.gps_segments[3], lat_hemi
-                lon_hemi = self.gps_segments[6]
-                lon = self.gps_segments[5], lon_hemi
-            except IndexError:
-                return False
+            lat_hemi = self.gps_segments[4]
+            lat = self.gps_segments[3], lat_hemi
+            lon_hemi = self.gps_segments[6]
+            lon = self.gps_segments[5], lon_hemi
             if not self.__parse_lat_lon(lat, lon):
                 return False
 
@@ -298,14 +296,16 @@ class MicropyGPS(object):
             # Update last fix time
             self.new_fix_time()
 
-        else:  # Clear position data if sentence is 'Invalid'
+            return True
+
+        else:
+            # Clear position data if sentence is 'Invalid'
             self._latitude = self.CLEAR_LAT
             self._longitude = self.CLEAR_LON
             self.speed = 0.0
             self.course = 0.0
             self.valid = False
-
-        return True
+            return False
 
     def gpgll(self):
         """
