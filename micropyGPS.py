@@ -307,7 +307,7 @@ class MicropyGPS(object):
             self.valid = False
             # Do we have to clear timestamp and date?
 
-            return True # Should it to be False?
+            return True # Should it be False?
 
     def gpgll(self):
         """
@@ -348,7 +348,7 @@ class MicropyGPS(object):
             self.valid = False
             # Do we have to clear timestamp and date?
 
-            return True # Should it to be False?
+            return True # Should it be False?
 
     def gpvtg(self):
         """Parse Track Made Good and Ground Speed (VTG) Sentence. Updates speed and course"""
