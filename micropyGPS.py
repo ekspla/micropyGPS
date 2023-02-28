@@ -568,20 +568,22 @@ class MicropyGPS(object):
         if not self.__parse_time(utc_string):
             return False
 
-        # Date stamp
+        # Date stamp and century
         try:
             day = int(self.gps_segments[2])
             month = int(self.gps_segments[3])
-            l_year = int(self.gps_segments[4])
-            century, year = int(l_year // 100), int(l_year % 100)
+            str_year = self.gps_segments[4]
+            century, year = int(str_year[0:2]), int(str_year[2:4])
+
+            # Update object data
             if self.century is None or century == self.century + 1:
                 self.century = century
             self.date = (day, month, year)
+            return True
+
         except (ValueError, IndexError):  # Bad Date stamp value present
             self.date = self.CLEAR_DATE
             return False
-
-        return True
 
     ##########################################
     # Data Stream Handler Functions
@@ -674,8 +676,8 @@ class MicropyGPS(object):
                 # Limit sentence types.  Can be controlled by supported_sentences (see below).
                 # Check that the sentence buffer isn't filling up with garbage waiting for the sentence 
                 # to complete
-                if (self.active_segment == 1 and self.gps_segments[0] not in self.supported_sentences or
-                    self.char_count > self.SENTENCE_LIMIT):
+                if (self.active_segment == 1 and self.gps_segments[0] not in self.supported_sentences
+                    or self.char_count > self.SENTENCE_LIMIT):
                     self.sentence_active = False
 
         # Tell host no new sentence was parsed
@@ -814,9 +816,9 @@ class MicropyGPS(object):
             # Retrieve month string from private set
             month = self.__MONTHS[self.date[1] - 1]
             # Determine date suffix and create day strings
-            st_nd_rd = {1:'st', 21:'st', 31:'st', 2:'nd', 22:'nd', 3:'rd', 23:'rd'}
-            if self.date[0] in st_nd_rd:
-                suffix = st_nd_rd[self.date[0]]
+            st_nd_rd = {1:'st', 2:'nd', 3:'rd'}
+            if self.date[0] % 10 in st_nd_rd:
+                suffix = st_nd_rd[(self.date[0] % 10)]
             else:
                 suffix = 'th'
             day = f'{self.date[0]}{suffix}'
