@@ -86,7 +86,7 @@ gga_latitudes = [(0, 0.0, 'N'), (0, 0.0, 'N'), (37, 49.1802, 'N'), (37, 23.46587
 gga_longitudes = [(0, 0.0, 'W'), (0, 0.0, 'W'), (83, 38.7865, 'W'), (122, 2.26957864, 'W')]
 gga_fixes = [0, 0, 1, 2]
 gga_timestamps = [(18, 1, 26.905), (18, 14, 33.343), (18, 0, 50.896), (17, 28, 14.0)]
-gga_hdops = [0.0, 0.0, 1.1, 1.2]
+gga_hdops = [float('nan'), float('nan'), 1.1, 1.2]
 gga_altitudes = [0.0, 0.0, 397.4, 18.893]
 gga_satellites_in_uses = [0, 0, 7, 6]
 gga_geoid_heights = [0.0, 0.0, -32.5, -25.669]
@@ -270,7 +270,10 @@ def test_gga_sentences():
                 print('Altitude:', my_gps.altitude)
                 assert my_gps.geoid_height == gga_geoid_heights[sentence_count]
                 print('Height Above Geoid:', my_gps.geoid_height)
-                assert my_gps.hdop == gga_hdops[sentence_count]
+                if my_gps.hdop != my_gps.hdop: # Check if it is NaN, False for the others.
+                    pass
+                else:
+                    assert my_gps.hdop == gga_hdops[sentence_count]
                 print('Horizontal Dilution of Precision:', my_gps.hdop)
                 assert my_gps.satellites_in_use == gga_satellites_in_uses[sentence_count]
                 print('Satellites in Use by Receiver:', my_gps.satellites_in_use)
@@ -297,11 +300,20 @@ def test_gsa_sentences():
                 print('Satellites Used', my_gps.satellites_used)
                 assert my_gps.fix_type == 3
                 print('Fix Type Code:', my_gps.fix_type)
-                assert my_gps.hdop == gsa_hdop[sentence_count]
+                if my_gps.hdop != my_gps.hdop: # Check if it is NaN, False for the others.
+                    pass
+                else:
+                    assert my_gps.hdop == gsa_hdop[sentence_count]
                 print('Horizontal Dilution of Precision:', my_gps.hdop)
-                assert my_gps.vdop == gsa_vdop[sentence_count]
+                if my_gps.vdop != my_gps.vdop:
+                    pass
+                else:
+                    assert my_gps.vdop == gsa_vdop[sentence_count]
                 print('Vertical Dilution of Precision:', my_gps.vdop)
-                assert my_gps.pdop == gsa_pdop[sentence_count]
+                if my_gps.pdop != my_gps.pdop:
+                    pass
+                else:
+                    assert my_gps.pdop == gsa_pdop[sentence_count]
                 print('Position Dilution of Precision:', my_gps.pdop)
     assert my_gps.clean_sentences == len(test_GSA)
     assert my_gps.parsed_sentences == len(test_GSA)

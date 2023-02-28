@@ -43,6 +43,7 @@ class MicropyGPS(object):
     CLEAR_TIME = (0, 0, 0.0)
     CLEAR_LAT = (0, 0.0, 'N')
     CLEAR_LON = (0, 0.0, 'W')
+    __f_nan = float('nan')
     __buf = [] # Buffer for update()
 
     def __init__(self, local_offset=0, location_formatting='ddm'):
@@ -100,9 +101,9 @@ class MicropyGPS(object):
         self.last_sv_sentence = 0
         self.total_sv_sentences = 0
         self.satellite_data = dict()
-        self.hdop = 0.0
-        self.pdop = 0.0
-        self.vdop = 0.0
+        self.hdop = self.__f_nan
+        self.pdop = self.__f_nan
+        self.vdop = self.__f_nan
         self.valid = False
         self.fix_stat = 0
         self.fix_type = 1
@@ -395,7 +396,7 @@ class MicropyGPS(object):
             # Horizontal dilution of precision
             hdop = float(self.gps_segments[8])
         except (ValueError, IndexError):
-            hdop = 0.0
+            hdop = self.__f_nan
 
         # Process location data if fix is GOOD
         if fix_stat:
@@ -598,7 +599,7 @@ class MicropyGPS(object):
                     self.active_segment += 1
                     self.gps_segments.append('')
 
-                # Check if a sentence is almost ending (*), CRC (2 bytes) follows
+                # Check if the sentence is almost ending (*), CRC (2 bytes) follows
                 elif new_char == '*':
                     self.process_crc = False
                     self.__update_segment()
