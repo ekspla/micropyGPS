@@ -46,7 +46,7 @@ class MicropyGPS(object):
     __f_nan = float('nan')
     __buf = [] # Buffer for update()
 
-    def __init__(self, local_offset=0, location_formatting='ddm'):
+    def __init__(self, local_offset=0, location_formatting='ddm', century=None):
         """
         Setup GPS Object Status Flags, Internal Data Registers, etc
             local_offset (int): Timezone difference to UTC (preliminary support, date may be corrupted.)
@@ -55,6 +55,7 @@ class MicropyGPS(object):
                                        Degrees Decimal Minutes (ddm) - 40° 26.767′ N
                                        Degrees Minutes Seconds (dms) - 40° 26′ 46″ N
                                        Decimal Degrees (dd) - 40.446° (negative values represent south/west)
+            century (int): 19 or 20.  Updated if a GPZDA sentence is parsed.
         """
 
         #####################
@@ -83,6 +84,7 @@ class MicropyGPS(object):
         # Time
         self.timestamp = self.CLEAR_TIME
         self.date = self.CLEAR_DATE
+        self.century = century
         self.local_offset = local_offset
 
         # Position/Motion
@@ -553,6 +555,34 @@ class MicropyGPS(object):
 
         return True
 
+    def gpzda(self):
+        """
+        Parse GPZDA sentence. Updates UTC timestamp, date and century.
+        """
+
+        # UTC timestamp
+        try:
+            utc_string = self.gps_segments[1]
+        except IndexError:
+            return False
+        if not self.__parse_time(utc_string):
+            return False
+
+        # Date stamp
+        try:
+            day = int(self.gps_segments[2])
+            month = int(self.gps_segments[3])
+            l_year = int(self.gps_segments[4])
+            century, year = int(l_year // 100), int(l_year % 100)
+            if self.century is None or century == self.century + 1:
+                self.century = century
+            self.date = (day, month, year)
+        except (ValueError, IndexError):  # Bad Date stamp value present
+            self.date = self.CLEAR_DATE
+            return False
+
+        return True
+
     ##########################################
     # Data Stream Handler Functions
     ##########################################
@@ -768,7 +798,7 @@ class MicropyGPS(object):
             spd = self.speed * 1.852
         return f'{spd} {unit}'
 
-    def date_string(self, formatting='s_mdy', century='20'):
+    def date_string(self, formatting='s_mdy', century=None):
         """
         Creates a readable string of the current date.
         Can select between long format: Januray 1st, 2014 or two short formats:
@@ -778,6 +808,7 @@ class MicropyGPS(object):
         :return: date_string with the specified format
         """
 
+        century = century or self.century or 20
         # Long Format
         if formatting == 'long':
             # Retrieve month string from private set
@@ -819,7 +850,7 @@ class MicropyGPS(object):
                            'GPGLL': gpgll, 'GLGLL': gpgll,
                            'GNGGA': gpgga, 'GNRMC': gprmc,
                            'GNVTG': gpvtg, 'GNGLL': gpgll,
-                           'GNGSA': gpgsa,
+                           'GNGSA': gpgsa, 'GPZDA': gpzda,
                           }
 
 if __name__ == "__main__":

@@ -183,6 +183,13 @@ gll_timestamp = [(0, 8, 12.0),
                  (9, 22, 4.999)]
 gll_valid = [True, True, True, False]
 
+test_ZDA = ['$GPZDA,172809.456,12,07,1996,00,00*57']
+zda_parsed_strings = [['GPZDA', '172809.456', '12', '07', '1996', '00', '00', '57']]
+zda_crc_values = [0x57]
+zda_times = [(17, 28, 9.456)]
+zda_dates = [(12, 7, 96)]
+zda_centuries = [19]
+
 
 def test_rmc_sentences():
     my_gps = MicropyGPS()
@@ -383,6 +390,31 @@ def test_gll_sentences():
                 print('Data is Valid:', my_gps.valid)
     assert my_gps.clean_sentences == len(test_GLL)
     assert my_gps.parsed_sentences == len(test_GLL)
+    assert my_gps.crc_fails == 0
+
+
+def test_zda_sentences():
+    my_gps = MicropyGPS()
+    sentence = ''
+    print('')
+    for sentence_count, ZDA_sentence in enumerate(test_ZDA):
+        for y in ZDA_sentence:
+            sentence = my_gps.update(y)
+            if sentence:
+                assert sentence == "GPZDA"
+                print('Parsed a', sentence, 'Sentence')
+                assert my_gps.gps_segments == zda_parsed_strings[sentence_count]
+                print('Parsed Strings:', my_gps.gps_segments)
+                assert my_gps.crc_xor == zda_crc_values[sentence_count]
+                print('Sentence CRC Value:', hex(my_gps.crc_xor))
+                assert my_gps.timestamp == zda_times[sentence_count]
+                print('UTC Timestamp:', my_gps.timestamp)
+                assert my_gps.date == zda_dates[sentence_count]
+                print('Date Stamp:', my_gps.date)
+                assert my_gps.century == zda_centuries[sentence_count]
+                print('Century:', my_gps.century)
+    assert my_gps.clean_sentences == len(test_ZDA)
+    assert my_gps.parsed_sentences == len(test_ZDA)
     assert my_gps.crc_fails == 0
 
 
