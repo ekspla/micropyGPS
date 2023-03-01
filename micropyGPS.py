@@ -299,8 +299,6 @@ class MicropyGPS(object):
             # Update last fix time
             self.new_fix_time()
 
-            return True
-
         else:
             # Clear position data if sentence is 'Invalid'
             self._latitude = self.CLEAR_LAT
@@ -309,8 +307,10 @@ class MicropyGPS(object):
             self.course = 0.0
             self.valid = False
             # Do we have to clear timestamp and date?
+            #return True # Should it be False?
 
-            return True # Should it be False?
+        return True
+
 
     def gpgll(self):
         """
@@ -343,15 +343,15 @@ class MicropyGPS(object):
 
             # Update last fix time
             self.new_fix_time()
-            return True
 
         else:  # Clear position data if sentence is 'Invalid'
             self._latitude = self.CLEAR_LAT
             self._longitude = self.CLEAR_LON
             self.valid = False
             # Do we have to clear timestamp and date?
+            #return True # Should it be False?
 
-            return True # Should it be False?
+        return True
 
     def gpvtg(self):
         """Parse Track Made Good and Ground Speed (VTG) Sentence. Updates speed and course"""
@@ -591,7 +591,7 @@ class MicropyGPS(object):
 
     def new_sentence(self):
         """Adjust Object Flags in Preparation for a New Sentence"""
-        self.gps_segments = ['']
+        self.gps_segments = []
         self.active_segment = 0
         self.crc_xor = 0
         self.sentence_active = True
@@ -600,7 +600,7 @@ class MicropyGPS(object):
         self.__buf = []
 
     def __update_segment(self):
-        self.gps_segments[self.active_segment] = ''.join(self.__buf)
+        self.gps_segments.append(''.join(self.__buf))
         self.__buf = []
 
     def update(self, new_char):
@@ -629,14 +629,12 @@ class MicropyGPS(object):
                 if new_char == ',':
                     self.__update_segment()
                     self.active_segment += 1
-                    self.gps_segments.append('')
 
                 # Check if the sentence is almost ending (*), CRC (2 bytes) follows
                 elif new_char == '*':
                     self.process_crc = False
                     self.__update_segment()
                     self.active_segment += 1
-                    self.gps_segments.append('')
                     return None
 
                 # Store all other printable character and check CRC when ready
