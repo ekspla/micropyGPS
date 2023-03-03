@@ -44,7 +44,7 @@ class MicropyGPS(object):
     CLEAR_LAT = (0, 0.0, 'N')
     CLEAR_LON = (0, 0.0, 'W')
     __f_nan = float('nan')
-    __buf = [] # Buffer for update()
+    __buf = bytearray() # Buffer for update()
 
     def __init__(self, local_offset=0, location_formatting='ddm', century=None):
         """
@@ -310,7 +310,6 @@ class MicropyGPS(object):
             #return True # Should it be False?
 
         return True
-
 
     def gpgll(self):
         """
@@ -591,17 +590,13 @@ class MicropyGPS(object):
 
     def new_sentence(self):
         """Adjust Object Flags in Preparation for a New Sentence"""
-        self.gps_segments = []
+        self.gps_segments[:] = []
         self.active_segment = 0
         self.crc_xor = 0
         self.sentence_active = True
         self.process_crc = True
         self.char_count = 0
-        self.__buf = []
-
-    def __update_segment(self):
-        self.gps_segments.append(''.join(self.__buf))
-        self.__buf = []
+        self.__buf[:] = b''
 
     def update(self, new_char):
         """
@@ -627,19 +622,21 @@ class MicropyGPS(object):
 
                 # Check if the segment is ended (,), Create a new segment to feed characters to
                 if new_char == ',':
-                    self.__update_segment()
+                    self.gps_segments.append(self.__buf.decode('ascii'))
+                    self.__buf[:] = b''
                     self.active_segment += 1
 
                 # Check if the sentence is almost ending (*), CRC (2 bytes) follows
                 elif new_char == '*':
                     self.process_crc = False
-                    self.__update_segment()
+                    self.gps_segments.append(self.__buf.decode('ascii'))
+                    self.__buf[:] = b''
                     self.active_segment += 1
                     return None
 
                 # Store all other printable character and check CRC when ready
                 else:
-                    self.__buf.append(new_char)
+                    self.__buf.append(ascii_char)
 
                 # Update CRC (between the starting '$' and the ending '*' marks, excluding the marks.)
                 if self.process_crc:
@@ -647,7 +644,8 @@ class MicropyGPS(object):
 
                 # When CRC input is disabled sentence is nearly complete, another 2 bytes necessary for CRC.
                 elif len(self.__buf) == 2:
-                    self.__update_segment()
+                    self.gps_segments.append(self.__buf.decode('ascii'))
+                    self.__buf[:] = b''
                     try:
                         final_crc = int(self.gps_segments[self.active_segment], 16)
                     except ValueError:
