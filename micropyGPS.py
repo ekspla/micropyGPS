@@ -833,7 +833,7 @@ class MicropyGPS(object):
                 suffix = 'th'
             day = f'{self.date[0]}{suffix}'
             # Create Year String
-            year = f'{century}{self.date[2]}'
+            year = f'{century}{self.date[2]:02d}'
             # Put it all together
             date_string = f'{month} {day}, {year}'
 
