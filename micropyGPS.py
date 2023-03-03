@@ -670,14 +670,15 @@ class MicropyGPS(object):
                         self.clean_sentences += 1  # Increment clean sentences received
                         self.sentence_active = False  # Clear active processing flag
 
-                        if self.gps_segments[0] in self.supported_sentences:
-
+                        try:
                             # Parse the sentence based on the message type, receive True if parse is clean
                             if self.supported_sentences[self.gps_segments[0]](self):
-
                             # Let host know that the GPS object was updated by returning parsed sentence type
                                 self.parsed_sentences += 1
                                 return self.gps_segments[0]
+
+                        except KeyError:
+                            pass
 
                     else:
                         self.crc_fails += 1
