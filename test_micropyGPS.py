@@ -428,7 +428,8 @@ def test_logging():
     assert my_gps.stop_logging()
     with open('test.txt', 'rb') as log_file:
         log_hash = hashlib.md5()
-        log_hash.update(log_file.read())
+        #log_hash.update(log_file.read())
+        log_hash.update(log_file.read().decode().replace('\r\n', '\n').encode())
         assert log_hash.digest() == b'\x33\xa7\x5e\xae\xeb\x8d\xf8\xe8\xad\x5e\x54\xa2\xfd\x6a\x11\xa3'
     assert my_gps.start_logging('test.txt', mode="append")
     for GSV_sentence in test_GSV:
@@ -437,7 +438,8 @@ def test_logging():
     assert my_gps.stop_logging()
     with open('test.txt', 'rb') as log_file:
         log_hash = hashlib.md5()
-        log_hash.update(log_file.read())
+        #log_hash.update(log_file.read())
+        log_hash.update(log_file.read().decode().replace('\r\n', '\n').encode())
         assert log_hash.digest() == b'\xa4\x16\x79\xe1\xf9\x30\x0e\xd9\x73\xc8\x43\xc4\xa4\x0f\xe4\x3b'
 
 
