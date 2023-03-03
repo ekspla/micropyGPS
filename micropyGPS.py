@@ -3,8 +3,21 @@
 # Copyright (c) 2017 Michael Calvin McCoy (calvin.mccoy@protonmail.com)
 # The MIT License (MIT) - see LICENSE file
 #
-# Modfied by ekspla (https://github.com/ekspla), 2023.
-# Tested on CPython 3 and Micropython 1.19.1.
+# Modfied by ekspla (https://github.com/ekspla), 2023.  Tested on CPython 3 and Micropython 1.19.1.
+# 1. Fixed wrong formatted decimal degrees in latitudes and logitudes. DD format should have sign (+/-)
+#    indicating N/S or E/W.  These properties in dd fromat are changed from tuples to float values.
+# 2. Tuples (instead of lists) are used in most of the attributes for less memory consumption.
+# 3. Change in speed attribute (knots only).  The unit conversions are trivial.  Use speed_string().
+# 4. Undefined DOP is changed from float(0.0) to float('nan') because 0.0 has an opposite meaning.
+# 5. Modified the code in update() for efficiency.  Unsupported gps sentences are not read any more;
+#    use mutable supported_sentences (dict) to control.
+# 6. Added ZDA parser from which centuries in years (int:19 or 20) can be read; the attribute updated.
+# 7. In RMC/GGA/GLL/ZDA, timestamp and coordinate parsers are refactored.
+# 8. f-strings are used in string formatting.  This requires relatively new (!= EOL) python versions.
+# 9. Refactored pretty printing of latitude_string() and longitude_string().
+# 10. Centuries in years are shown by s_dmy and s_mdy format in date_string().
+# 11. Import of math module is not required.  Change in speed and efficiency was negligible without it.
+# 12. Fixed assertion error of test_micropyGPS.test_logging() due to the teriminator (\r\n) on Windows.
 """
 
 # TODO:
@@ -610,7 +623,7 @@ class MicropyGPS(object):
         if 32 <= ascii_char <= 126 or ascii_char in {10, 13}:
             self.char_count += 1
 
-            # Write Character to log file if enabled
+            # Write character to log file if enabled
             if self.log_en:
                 self.write_log(new_char)
 
@@ -620,7 +633,7 @@ class MicropyGPS(object):
 
             elif self.sentence_active:
 
-                # Check if the segment is ended (,), Create a new segment to feed characters to
+                # Check if the active segment is ended (,), create a new segment to feed characters to
                 if new_char == ',':
                     self.gps_segments.append(self.__buf.decode('ascii'))
                     self.__buf[:] = b''
