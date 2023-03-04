@@ -435,14 +435,13 @@ class MicropyGPS(object):
             self.altitude = altitude
             self.geoid_height = geoid_height
 
+            # Update last fix time
+            self.new_fix_time()
+
         # Update object data
         self.satellites_in_use = satellites_in_use
         self.hdop = hdop
         self.fix_stat = fix_stat
-
-        # If fix is GOOD, update fix timestamp
-        if fix_stat:
-            self.new_fix_time()
 
         return True
 
