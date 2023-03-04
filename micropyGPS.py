@@ -657,7 +657,8 @@ class MicropyGPS(object):
 
                 # When CRC input is disabled sentence is nearly complete, another 2 bytes necessary for CRC.
                 elif len(self.__buf) == 2:
-                    self.gps_segments.append(self.__buf.decode('ascii'))
+                    self.sentence_active = False  # Clear active processing flag
+                    self.gps_segments.append(self.__buf.decode('ascii')) # Update CRC segment
                     self.__buf[:] = b''
                     try:
                         final_crc = int(self.gps_segments[self.active_segment], 16)
@@ -668,7 +669,6 @@ class MicropyGPS(object):
                     # If a valid sentence was received and it's a supported sentence, then parse it!!
                     if self.crc_xor == final_crc:
                         self.clean_sentences += 1  # Increment clean sentences received
-                        self.sentence_active = False  # Clear active processing flag
 
                         try:
                             # Parse the sentence based on the message type, receive True if parse is clean
@@ -682,6 +682,7 @@ class MicropyGPS(object):
 
                     else:
                         self.crc_fails += 1
+                    return None
 
                 # Limit sentence types.  Can be controlled by supported_sentences (see below).
                 # Check that the sentence buffer isn't filling up with garbage waiting for the sentence 
