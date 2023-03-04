@@ -203,50 +203,50 @@ class MicropyGPS(object):
         """
 
         # UTC timestamp
-        try:
-            if utc_string:  # Possible timestamp found
+        if not utc_string:
+            self.timestamp = self.CLEAR_TIME
+
+        else:  # Possible timestamp found, HHMMSS[.SSSSSS]
+            try:
                 hours = (int(utc_string[0:2]) + self.local_offset) % 24
                 minutes = int(utc_string[2:4])
                 seconds = float(utc_string[4:])
-                if seconds >= 60.0 or minutes >= 60:
-                    return False 
-                self.timestamp = (hours, minutes, seconds)
-            else:  # No timestamp yet
-                self.timestamp = self.CLEAR_TIME
-            return True
-        except ValueError:  # Bad timestamp value present
-            return False
 
-    def __parse_lat_lon(self, lat, lon):
-        """Parses latitudes and logitudes from str tuples.
+            except ValueError:  # Bad timestamp value present
+                return False
+            if seconds >= 60.0 or minutes >= 60:
+                return False 
+
+            # Update timestamp
+            self.timestamp = (hours, minutes, seconds)
+
+        return True
+
+    def __parse_lat_lon(self, lat_str, lat_hemi, lon_str, lon_hemi):
+        """Parses latitudes and logitudes from strings.
         Stores the parsed tuples (37, 51.65, 'S') and (145, 7.36, 'E'), respectively,
         in self._latitude and self._longitude.  Returns True if success.
 
-        >>> __parse_lat_lon(('3751.65', 'S'), ('14507.36', 'E'))
+        >>> __parse_lat_lon('3751.65', 'S', '14507.36', 'E')
         True
         """
 
+        if lat_hemi not in self.__HEMISPHERES or lon_hemi not in self.__HEMISPHERES:
+            return False
+
         try:
-            # Latitude
-            lat_str, lat_hemi = lat
-            if lat_hemi not in self.__HEMISPHERES:
-                return False
+            # Latitude: 'DDMM.MMMM'
             lat_degs = int(lat_str[0:2])
             lat_mins = float(lat_str[2:])
-
-            # Longitude
-            lon_str, lon_hemi = lon
-            if lon_hemi not in self.__HEMISPHERES:
-                return False
+            # Longitude: 'DDDMM.MMMM'
             lon_degs = int(lon_str[0:3])
             lon_mins = float(lon_str[3:])
-
-            self._latitude = (lat_degs, lat_mins, lat_hemi)
-            self._longitude = (lon_degs, lon_mins, lon_hemi)
-            return True
-
         except ValueError:
             return False
+
+        self._latitude = (lat_degs, lat_mins, lat_hemi)
+        self._longitude = (lon_degs, lon_mins, lon_hemi)
+        return True
 
     def gprmc(self):
         """
@@ -275,17 +275,16 @@ class MicropyGPS(object):
                     year = int(date_string[4:6])
                     self.date = (day, month, year)
                 else:  # No Date stamp yet
-                     self.date = self.CLEAR_DATE
+                    self.date = self.CLEAR_DATE
             except (ValueError, IndexError):  # Bad date stamp value present
                 return False
 
-            # Longitude / Latitude
-            lat_hemi = self.gps_segments[4]
-            lat = self.gps_segments[3], lat_hemi
-            lon_hemi = self.gps_segments[6]
-            lon = self.gps_segments[5], lon_hemi
-            if not self.__parse_lat_lon(lat, lon):
-                return False
+            # Latitude and Longitude 
+            if not self.__parse_lat_lon(self.gps_segments[3],
+                                        self.gps_segments[4],
+                                        self.gps_segments[5],
+                                        self.gps_segments[6]
+                                        ): return False
 
             # Speed in knots
             try:
@@ -294,13 +293,13 @@ class MicropyGPS(object):
                 return False
 
             # Course in degrees
-            try:
-                if self.gps_segments[8]:
+            if not self.gps_segments[8]:
+                course = 0.0
+            else:
+                try:
                     course = float(self.gps_segments[8])
-                else:
-                    course = 0.0
-            except ValueError:
-                return False
+                except ValueError:
+                    return False
 
             # TODO - Add magnetic variation
 
@@ -342,13 +341,12 @@ class MicropyGPS(object):
             if not self.__parse_time(utc_string):
                 return False
 
-            # Longitude / Latitude
-            lat_hemi = self.gps_segments[2]
-            lat = self.gps_segments[1], lat_hemi
-            lon_hemi = self.gps_segments[4]
-            lon = self.gps_segments[3], lon_hemi
-            if not self.__parse_lat_lon(lat, lon):
-                return False
+            # Latitude and Longitude
+            if not self.__parse_lat_lon(self.gps_segments[1],
+                                        self.gps_segments[2],
+                                        self.gps_segments[3],
+                                        self.gps_segments[4]
+                                        ): return False
 
             # Update object data
             self.valid = True
@@ -415,13 +413,12 @@ class MicropyGPS(object):
         # Process location data if fix is GOOD
         if fix_stat:
 
-            # Longitude / Latitude
-            lat_hemi = self.gps_segments[3]
-            lat = self.gps_segments[2], lat_hemi
-            lon_hemi = self.gps_segments[5]
-            lon = self.gps_segments[4], lon_hemi
-            if not self.__parse_lat_lon(lat, lon):
-                return False
+            # Latitude and Longitude
+            if not self.__parse_lat_lon(self.gps_segments[2],
+                                        self.gps_segments[3],
+                                        self.gps_segments[4],
+                                        self.gps_segments[5]
+                                        ): return False
 
             # Altitude / Height Above Geoid
             try:
@@ -479,14 +476,12 @@ class MicropyGPS(object):
         except ValueError:
             return False
 
-        # Update object data
-        self.fix_type = fix_type
-
         # If fix is GOOD, update fix timestamp
         if fix_type > self.__NO_FIX:
             self.new_fix_time()
 
         # Update object data
+        self.fix_type = fix_type
         self.satellites_used = sats_used
         self.hdop = hdop
         self.vdop = vdop
@@ -551,7 +546,6 @@ class MicropyGPS(object):
             # Add satellite data to satellite_dict
             satellite_dict[sat_id] = (elevation, azimuth, snr)
 
-
         # Update object data
         self.total_sv_sentences = num_sv_sentences
         self.last_sv_sentence = current_sv_sentence
@@ -583,13 +577,13 @@ class MicropyGPS(object):
         try:
             day = int(self.gps_segments[2])
             month = int(self.gps_segments[3])
-            str_year = self.gps_segments[4]
+            str_year = self.gps_segments[4] # 'YYYY' format
             century, year = int(str_year[0:2]), int(str_year[2:4])
 
             # Update object data
             if self.century is None or century == self.century + 1:
                 self.century = century
-            self.date = (day, month, year)
+            self.date = (day, month, year) # (DD, MM, YY)
             return True
 
         except (ValueError, IndexError):  # Bad Date stamp value present
