@@ -57,7 +57,6 @@ class MicropyGPS(object):
     CLEAR_LAT = (0, 0.0, 'N')
     CLEAR_LON = (0, 0.0, 'W')
     __f_nan = float('nan')
-    __buf = bytearray() # Buffer for update()
 
     def __init__(self, local_offset=0, location_formatting='ddm', century=None):
         """
@@ -77,6 +76,8 @@ class MicropyGPS(object):
         self.active_segment = 0
         self.process_crc = False
         self.gps_segments = []
+        self.__buf = bytearray() # Buffer for update()
+        self.__buf_append = self.__buf.append
         self.crc_xor = 0
         self.char_count = 0
         self.fix_time = 0
@@ -120,8 +121,8 @@ class MicropyGPS(object):
         self.pdop = self.__f_nan
         self.vdop = self.__f_nan
         self.valid = False
-        self.fix_stat = 0
-        self.fix_type = 1
+        self.fix_stat = 0 # Fix not available
+        self.fix_type = self.__NO_FIX
 
     ########################################
     # Coordinates Translation Functions
@@ -280,11 +281,12 @@ class MicropyGPS(object):
                 return False
 
             # Latitude and Longitude 
-            if not self.__parse_lat_lon(self.gps_segments[3],
-                                        self.gps_segments[4],
-                                        self.gps_segments[5],
-                                        self.gps_segments[6]
-                                        ): return False
+            if not self.__parse_lat_lon(
+                self.gps_segments[3],
+                self.gps_segments[4],
+                self.gps_segments[5],
+                self.gps_segments[6]
+            ): return False
 
             # Speed in knots
             try:
@@ -342,11 +344,12 @@ class MicropyGPS(object):
                 return False
 
             # Latitude and Longitude
-            if not self.__parse_lat_lon(self.gps_segments[1],
-                                        self.gps_segments[2],
-                                        self.gps_segments[3],
-                                        self.gps_segments[4]
-                                        ): return False
+            if not self.__parse_lat_lon(
+                self.gps_segments[1],
+                self.gps_segments[2],
+                self.gps_segments[3],
+                self.gps_segments[4]
+            ): return False
 
             # Update object data
             self.valid = True
@@ -414,11 +417,12 @@ class MicropyGPS(object):
         if fix_stat:
 
             # Latitude and Longitude
-            if not self.__parse_lat_lon(self.gps_segments[2],
-                                        self.gps_segments[3],
-                                        self.gps_segments[4],
-                                        self.gps_segments[5]
-                                        ): return False
+            if not self.__parse_lat_lon(
+                self.gps_segments[2],
+                self.gps_segments[3],
+                self.gps_segments[4],
+                self.gps_segments[5]
+            ): return False
 
             # Altitude / Height Above Geoid
             try:
@@ -604,6 +608,10 @@ class MicropyGPS(object):
         self.char_count = 0
         self.__buf[:] = b''
 
+    def __update_segment(self):
+        self.gps_segments.append(self.__buf.decode('ascii'))
+        self.__buf[:] = b''
+
     def update(self, new_char):
         """
         Process a new input char and updates GPS object if necessary based on special characters ('$', ',', '*')
@@ -628,21 +636,19 @@ class MicropyGPS(object):
 
                 # Check if the active segment is ended (,), create a new segment to feed characters to
                 if new_char == ',':
-                    self.gps_segments.append(self.__buf.decode('ascii'))
-                    self.__buf[:] = b''
+                    self.__update_segment()
                     self.active_segment += 1
 
                 # Check if the sentence is almost ending (*), CRC (2 bytes) follows
                 elif new_char == '*':
                     self.process_crc = False
-                    self.gps_segments.append(self.__buf.decode('ascii'))
-                    self.__buf[:] = b''
+                    self.__update_segment()
                     self.active_segment += 1
                     return None
 
                 # Store all other printable character and check CRC when ready
                 else:
-                    self.__buf.append(ascii_char)
+                    self.__buf_append(ascii_char)
 
                 # Update CRC (between the starting '$' and the ending '*' marks, excluding the marks.)
                 if self.process_crc:
@@ -651,8 +657,7 @@ class MicropyGPS(object):
                 # When CRC input is disabled sentence is nearly complete, another 2 bytes necessary for CRC.
                 elif len(self.__buf) == 2:
                     self.sentence_active = False  # Clear active processing flag
-                    self.gps_segments.append(self.__buf.decode('ascii')) # Update CRC segment
-                    self.__buf[:] = b''
+                    self.__update_segment() # Update CRC segment
                     try:
                         final_crc = int(self.gps_segments[self.active_segment], 16)
                     except ValueError:
