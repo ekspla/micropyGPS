@@ -46,7 +46,7 @@ class MicropyGPS(object):
 
     # Max number of characters a valid sentence can be (based on GGA sentence, 82 bytes incl. '$' and '\r\n')
     SENTENCE_LIMIT = 90
-    __HEMISPHERES = {'N', 'S', 'E', 'W'}
+    __HEMISPHERES = 'NSEW'
     __NO_FIX, __FIX_2D, __FIX_3D = 1, 2, 3
     __DIRECTIONS = ('N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
                     'S', 'SSW', 'SW', 'WSW', 'W','WNW', 'NW', 'NNW')
@@ -144,7 +144,7 @@ class MicropyGPS(object):
         """
         if self.coord_format == 'dd':
             decimal_degrees = lat_lon[0] + (lat_lon[1] / 60)
-            sign_dd = (lat_lon[2] in {'N', 'E'}) - (lat_lon[2] in {'S', 'W'})
+            sign_dd = (lat_lon[2] in 'NE') - (lat_lon[2] in 'SW')
             return sign_dd * decimal_degrees
         elif self.coord_format == 'dms':
             minute_parts = lat_lon[1] % 1, lat_lon[1] // 1
@@ -584,15 +584,15 @@ class MicropyGPS(object):
             str_year = self.gps_segments[4] # 'YYYY' format
             century, year = int(str_year[0:2]), int(str_year[2:4])
 
-            # Update object data
-            if self.century is None or century == self.century + 1:
-                self.century = century
-            self.date = (day, month, year) # (DD, MM, YY)
-            return True
-
         except (ValueError, IndexError):  # Bad Date stamp value present
             self.date = self.CLEAR_DATE
             return False
+
+        # Update object data
+        if self.century is None or century == self.century + 1:
+            self.century = century
+        self.date = (day, month, year) # (DD, MM, YY)
+        return True
 
     ##########################################
     # Data Stream Handler Functions
@@ -658,28 +658,26 @@ class MicropyGPS(object):
                 elif len(self.__buf) == 2:
                     self.sentence_active = False  # Clear active processing flag
                     self.__update_segment() # Update CRC segment
-                    try:
-                        final_crc = int(self.gps_segments[self.active_segment], 16)
+
+                    try: # Check CRC errors
+                        if self.crc_xor != int(self.gps_segments[self.active_segment], 16):
+                            self.crc_fails += 1
+                            return None
                     except ValueError:
                         # CRC Value was deformed and could not have been correct
                         return None
+                    self.clean_sentences += 1  # Increment clean sentences received
 
-                    # If a valid sentence was received and it's a supported sentence, then parse it!!
-                    if self.crc_xor == final_crc:
-                        self.clean_sentences += 1  # Increment clean sentences received
-
-                        try:
-                            # Parse the sentence based on the message type, receive True if parse is clean
-                            if self.supported_sentences[self.gps_segments[0]](self):
+                    # If the valid sentence is a supported sentence type, then parse it!!
+                    #s_type = self.gps_segments[0]
+                    if self.gps_segments[0] in self.supported_sentences:
+                        # Parse the sentence based on the message type, receive True if parse is clean
+                        if self.supported_sentences[self.gps_segments[0]](self):
                             # Let host know that the GPS object was updated by returning parsed sentence type
-                                self.parsed_sentences += 1
-                                return self.gps_segments[0]
-
-                        except KeyError:
-                            pass
-
-                    else:
-                        self.crc_fails += 1
+                            self.parsed_sentences += 1
+                            return self.gps_segments[0]
+                    #else:
+                    #    pass # Message type not supported
                     return None
 
                 # Limit sentence types.  Can be controlled by supported_sentences (see below).
@@ -825,9 +823,10 @@ class MicropyGPS(object):
             # Retrieve month string from private set
             month = self.__MONTHS[self.date[1] - 1]
             # Determine date suffix and create day strings
-            st_nd_rd = {1:'st', 2:'nd', 3:'rd'}
-            if self.date[0] % 10 in st_nd_rd:
-                suffix = st_nd_rd[(self.date[0] % 10)]
+            st_nd_rd = ('st', 'nd', 'rd')
+            lst_digit = self.date[0] % 10
+            if 1 <= lst_digit <= 3:
+                suffix = st_nd_rd[lst_digit - 1]
             else:
                 suffix = 'th'
             day = f'{self.date[0]}{suffix}'
