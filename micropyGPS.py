@@ -95,7 +95,7 @@ class MicropyGPS(object):
 
         #####################
         # Data From Sentences
-        # Time
+        # Time and Date
         self.timestamp = self.CLEAR_TIME
         self.date = self.CLEAR_DATE
         self.century = century
@@ -206,21 +206,21 @@ class MicropyGPS(object):
         # UTC timestamp
         if not utc_string:
             self.timestamp = self.CLEAR_TIME
+            return True
 
-        else:  # Possible timestamp found, HHMMSS[.SSSSSS]
-            try:
-                hours = (int(utc_string[0:2]) + self.local_offset) % 24
-                minutes = int(utc_string[2:4])
-                seconds = float(utc_string[4:])
+        # Possible timestamp found, HHMMSS[.SSSSSS]
+        try:
+            hours = (int(utc_string[0:2]) + self.local_offset) % 24
+            minutes = int(utc_string[2:4])
+            seconds = float(utc_string[4:])
 
-            except ValueError:  # Bad timestamp value present
-                return False
-            if seconds >= 60.0 or minutes >= 60:
-                return False 
+        except ValueError:  # Bad timestamp value present
+            return False
+        if seconds >= 60.0 or minutes >= 60:
+            return False 
 
-            # Update timestamp
-            self.timestamp = (hours, minutes, seconds)
-
+        # Update timestamp
+        self.timestamp = (hours, minutes, seconds)
         return True
 
     def __parse_lat_lon(self, lat_str, lat_hemi, lon_str, lon_hemi):
@@ -569,14 +569,6 @@ class MicropyGPS(object):
         Parse GPZDA sentence. Updates UTC timestamp, date and century.
         """
 
-        # UTC timestamp
-        try:
-            utc_string = self.gps_segments[1]
-        except IndexError:
-            return False
-        if not self.__parse_time(utc_string):
-            return False
-
         # Date stamp and century
         try:
             day = int(self.gps_segments[2])
@@ -586,6 +578,11 @@ class MicropyGPS(object):
 
         except (ValueError, IndexError):  # Bad Date stamp value present
             self.date = self.CLEAR_DATE
+            return False
+
+        # UTC timestamp
+        utc_string = self.gps_segments[1]
+        if not self.__parse_time(utc_string):
             return False
 
         # Update object data
@@ -621,7 +618,7 @@ class MicropyGPS(object):
 
         # Validate new_char is a printable char. cf. SP := 0x20 = 32, LF := 0x0a = 10, CR := 0x0d = 13.
         ascii_char = ord(new_char)
-        if 32 <= ascii_char <= 126 or ascii_char in {10, 13}:
+        if 32 <= ascii_char <= 126 or ascii_char in (10, 13):
             self.char_count += 1
 
             # Write character to log file if enabled
@@ -629,18 +626,18 @@ class MicropyGPS(object):
                 self.write_log(new_char)
 
             # Check if a new sentence is starting ($)
-            if new_char == '$':
+            if ascii_char == 36: # '$' 36 = 0x24
                 self.new_sentence()
 
             elif self.sentence_active:
 
                 # Check if the active segment is ended (,), create a new segment to feed characters to
-                if new_char == ',':
+                if ascii_char == 44: # ',' 44 = 0x2c
                     self.__update_segment()
                     self.active_segment += 1
 
                 # Check if the sentence is almost ending (*), CRC (2 bytes) follows
-                elif new_char == '*':
+                elif ascii_char == 42: # '*' 42 = 0x2a
                     self.process_crc = False
                     self.__update_segment()
                     self.active_segment += 1
@@ -654,7 +651,7 @@ class MicropyGPS(object):
                 if self.process_crc:
                     self.crc_xor ^= ascii_char
 
-                # When CRC input is disabled sentence is nearly complete, another 2 bytes necessary for CRC.
+                # When CRC input is disabled sentence is nearly complete, additional 2 bytes necessary for CRC.
                 elif len(self.__buf) == 2:
                     self.sentence_active = False  # Clear active processing flag
                     self.__update_segment() # Update CRC segment
@@ -669,20 +666,17 @@ class MicropyGPS(object):
                     self.clean_sentences += 1  # Increment clean sentences received
 
                     # If the valid sentence is a supported sentence type, then parse it!!
-                    #s_type = self.gps_segments[0]
-                    if self.gps_segments[0] in self.supported_sentences:
-                        # Parse the sentence based on the message type, receive True if parse is clean
-                        if self.supported_sentences[self.gps_segments[0]](self):
-                            # Let host know that the GPS object was updated by returning parsed sentence type
-                            self.parsed_sentences += 1
-                            return self.gps_segments[0]
-                    #else:
-                    #    pass # Message type not supported
-                    return None
+                    if self.gps_segments[0] not in self.supported_sentences:
+                        return None # Message type not supported
+                    # Parse the sentence based on the message type, receive True if parse is clean
+                    if self.supported_sentences[self.gps_segments[0]](self):
+                        # Let host know that the GPS object was updated by returning parsed sentence type
+                        self.parsed_sentences += 1
+                        return self.gps_segments[0]
 
-                # Limit sentence types.  Can be controlled by supported_sentences (see below).
-                # Check that the sentence buffer isn't filling up with garbage waiting for the sentence 
-                # to complete
+                # Avoid unsupported sentences to be processed. Can be controlled by supported_sentences (dict).
+                # Also check that the sentence buffer isn't filling up with garbage waiting for the sentence 
+                # to complete.
                 if (self.active_segment == 1 and self.gps_segments[0] not in self.supported_sentences
                     or self.char_count > self.SENTENCE_LIMIT):
                     self.sentence_active = False
