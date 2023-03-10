@@ -666,10 +666,9 @@ class MicropyGPS(object):
                     self.clean_sentences += 1  # Increment clean sentences received
 
                     # If the valid sentence is a supported sentence type, then parse it!!
-                    if self.gps_segments[0] not in self.supported_sentences:
-                        return None # Message type not supported
+                    if (self.gps_segments[0] in self.supported_sentences
+                        and self.supported_sentences[self.gps_segments[0]](self)):
                     # Parse the sentence based on the message type, receive True if parse is clean
-                    if self.supported_sentences[self.gps_segments[0]](self):
                         # Let host know that the GPS object was updated by returning parsed sentence type
                         self.parsed_sentences += 1
                         return self.gps_segments[0]
@@ -812,6 +811,9 @@ class MicropyGPS(object):
         """
 
         century = century or self.century or 20
+        # Create Year String.  Add leading zeros to year string if necessary.
+        year = f'{century}{self.date[2]:02d}'
+
         # Long Format
         if formatting == 'long':
             # Retrieve month string from private set
@@ -824,8 +826,6 @@ class MicropyGPS(object):
             else:
                 suffix = 'th'
             day = f'{self.date[0]}{suffix}'
-            # Create Year String
-            year = f'{century}{self.date[2]:02d}'
             # Put it all together
             date_string = f'{month} {day}, {year}'
 
@@ -834,9 +834,6 @@ class MicropyGPS(object):
             day = f'{self.date[0]:02d}'
             # Add leading zeros to month string if necessary
             month = f'{self.date[1]:02d}'
-            # Add leading zeros to year string if necessary
-            year = f'{century}{self.date[2]:02d}'
-
             # Build final string based on desired formatting
             if formatting == 's_dmy':
                 date_string = f'{day}/{month}/{year}'
