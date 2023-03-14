@@ -147,11 +147,13 @@ class MicropyGPS(object):
             sign_dd = (lat_lon[2] in 'NE') - (lat_lon[2] in 'SW')
             return sign_dd * decimal_degrees
         elif self.coord_format == 'dms':
-            minute_parts = lat_lon[1] % 1, lat_lon[1] // 1
-            seconds = round(minute_parts[0] * 60)
-            return (lat_lon[0], int(minute_parts[1]), seconds, lat_lon[2])
-        else:
-            return lat_lon
+            return (
+                lat_lon[0], 
+                int(lat_lon[1]), 
+                round((lat_lon[1] % 1) * 60), 
+                lat_lon[2]
+            )
+        return lat_lon
 
     ########################################
     # Logging Related Functions
