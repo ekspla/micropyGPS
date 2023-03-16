@@ -46,7 +46,7 @@ class MicropyGPS(object):
 
     # Max number of characters a valid sentence can be (based on GGA sentence, 82 bytes incl. '$' and '\r\n')
     SENTENCE_LIMIT = 90
-    __HEMISPHERES = 'NSEW'
+    #__HEMISPHERES = 'NSEW'
     __NO_FIX, __FIX_2D, __FIX_3D = 1, 2, 3
     __DIRECTIONS = ('N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
                     'S', 'SSW', 'SW', 'WSW', 'W','WNW', 'NW', 'NNW')
@@ -234,7 +234,8 @@ class MicropyGPS(object):
         True
         """
 
-        if lat_hemi not in self.__HEMISPHERES or lon_hemi not in self.__HEMISPHERES:
+        #if lat_hemi not in self.__HEMISPHERES or lon_hemi not in self.__HEMISPHERES:
+        if lat_hemi not in "NS" or lon_hemi not in "EW":
             return False
 
         try:
