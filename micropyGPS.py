@@ -148,12 +148,12 @@ class MicropyGPS(object):
             return sign_dd * decimal_degrees
         elif self.coord_format == 'dms':
             return (
-                lat_lon[0], 
-                int(lat_lon[1]), 
-                round((lat_lon[1] % 1) * 60), 
-                lat_lon[2]
+                lat_lon[0], # degrees
+                int(lat_lon[1]), # minutes
+                round((lat_lon[1] % 1) * 60), # seconds
+                lat_lon[2], # hemisphere
             )
-        return lat_lon
+        return lat_lon # (degrees, decimal minutes, hemisphere)
 
     ########################################
     # Logging Related Functions
@@ -265,8 +265,7 @@ class MicropyGPS(object):
         if status == 'A':  # Data from receiver is Valid/Has Fix
 
             # UTC timestamp
-            utc_string = self.gps_segments[1]
-            if not self.__parse_time(utc_string):
+            if not self.__parse_time(self.gps_segments[1]):
                 return False
 
             # Date stamp
@@ -284,10 +283,10 @@ class MicropyGPS(object):
 
             # Latitude and Longitude 
             if not self.__parse_lat_lon(
-                self.gps_segments[3],
-                self.gps_segments[4],
-                self.gps_segments[5],
-                self.gps_segments[6]
+                self.gps_segments[3], # latitude in 'DDMM.MMMM' format
+                self.gps_segments[4], # hemisphere in 'N', 'S' 
+                self.gps_segments[5], # longitude in 'DDDMM.MMMM' format
+                self.gps_segments[6], # hemisphere in 'E', 'W'
             ): return False
 
             # Speed in knots
@@ -341,16 +340,15 @@ class MicropyGPS(object):
         if status == 'A':  # Data from receiver is Valid/Has Fix
 
             # UTC timestamp
-            utc_string = self.gps_segments[5]
-            if not self.__parse_time(utc_string):
+            if not self.__parse_time(self.gps_segments[5]):
                 return False
 
             # Latitude and Longitude
             if not self.__parse_lat_lon(
-                self.gps_segments[1],
-                self.gps_segments[2],
-                self.gps_segments[3],
-                self.gps_segments[4]
+                self.gps_segments[1], # latitude in 'DDMM.MMMM' format
+                self.gps_segments[2], # hemisphere in 'N', 'S' 
+                self.gps_segments[3], # longitude in 'DDDMM.MMMM' format
+                self.gps_segments[4], # hemisphere in 'E', 'W'
             ): return False
 
             # Update object data
@@ -391,22 +389,16 @@ class MicropyGPS(object):
         and fix status
         """
 
-        # UTC timestamp
-        try:
-            utc_string = self.gps_segments[1]
-        except IndexError:
-            return False
-        if not self.__parse_time(utc_string):
-            return False
-
         try:
             # Number of satellites in use
             satellites_in_use = int(self.gps_segments[7])
-
             # Get fix status
             fix_stat = int(self.gps_segments[6])
-
         except (ValueError, IndexError):
+            return False
+
+        # UTC timestamp
+        if not self.__parse_time(self.gps_segments[1]):
             return False
 
         try:
@@ -420,10 +412,10 @@ class MicropyGPS(object):
 
             # Latitude and Longitude
             if not self.__parse_lat_lon(
-                self.gps_segments[2],
-                self.gps_segments[3],
-                self.gps_segments[4],
-                self.gps_segments[5]
+                self.gps_segments[2], # latitude in 'DDMM.MMMM' format
+                self.gps_segments[3], # hemisphere in 'N', 'S' 
+                self.gps_segments[4], # longitude in 'DDDMM.MMMM' format
+                self.gps_segments[5], # hemisphere in 'E', 'W'
             ): return False
 
             # Altitude / Height Above Geoid
@@ -573,8 +565,8 @@ class MicropyGPS(object):
 
         # Date stamp and century
         try:
-            day = int(self.gps_segments[2])
-            month = int(self.gps_segments[3])
+            day = int(self.gps_segments[2]) # 'DD'
+            month = int(self.gps_segments[3]) # 'MM'
             str_year = self.gps_segments[4] # 'YYYY' format
             century, year = int(str_year[0:2]), int(str_year[2:4])
 
@@ -583,12 +575,11 @@ class MicropyGPS(object):
             return False
 
         # UTC timestamp
-        utc_string = self.gps_segments[1]
-        if not self.__parse_time(utc_string):
+        if not self.__parse_time(self.gps_segments[1]):
             return False
 
         # Update object data
-        if self.century is None or century == self.century + 1:
+        if self.century in (None, century - 1):
             self.century = century
         self.date = (day, month, year) # (DD, MM, YY)
         return True
@@ -751,8 +742,7 @@ class MicropyGPS(object):
         # Calculate the offset for a rotated compass
         offset_course = (self.course + 11.25) % 360.0
         # Each compass point is separated by 22.5 degrees, divide to find lookup value
-        dir_index = int(offset_course // 22.5)
-        return self.__DIRECTIONS[dir_index]
+        return self.__DIRECTIONS[int(offset_course // 22.5)]
 
     def __pp_lat_lon(self, lat_lon):
         """
@@ -821,13 +811,11 @@ class MicropyGPS(object):
             # Retrieve month string from private set
             month = self.__MONTHS[self.date[1] - 1]
             # Determine date suffix and create day strings
-            st_nd_rd = ('st', 'nd', 'rd')
-            lst_digit = self.date[0] % 10
-            if 1 <= lst_digit <= 3:
-                suffix = st_nd_rd[lst_digit - 1]
-            else:
-                suffix = 'th'
-            day = f'{self.date[0]}{suffix}'
+            suffix = ('th', 'st', 'nd', 'rd')
+            index = self.date[0] % 10
+            if not 1 <= index <= 3:
+                index = 0
+            day = f'{self.date[0]}{suffix[index]}'
             # Put it all together
             date_string = f'{month} {day}, {year}'
 
