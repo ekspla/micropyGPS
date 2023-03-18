@@ -80,6 +80,7 @@ $ pytest -svvv test_micropyGPS.py
 * GNGSA
 * GPGSV
 * GLGSV
+* GPZDA
 
 
 ### Position Data
