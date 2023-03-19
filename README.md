@@ -172,7 +172,7 @@ While parsing sentences, the MicropyGPS object tracks the number of number of pa
 >>> my_gps.crc_fails
 0
 ```
-The amount of real time passed since the last sentence with valid fix data was parse is also made available. **NOTE:** On the pyBoard, this value is returned in milliseconds while on Unix/Windows it is returned in seconds.
+The amount of real time (in milliseconds) passed since the last sentence with valid fix data was parse is also made available.
 ```sh
 # Assume running on pyBoard
 >>> my_gps.time_since_fix()
